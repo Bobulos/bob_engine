@@ -1,0 +1,15 @@
+[package]
+name = "bob_engine"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["simd"]
+simd = []  
+
+
+[dependencies]
+bytemuck = "1"   
+# Use the latest version available (0.17+ as of early 2026)
+sdl3 = { version = "0", features = ["build-from-source", "image"] }
+    
