@@ -12,4 +12,5 @@ simd = []
 bytemuck = "1"   
 # Use the latest version available (0.17+ as of early 2026)
 sdl3 = { version = "0", features = ["build-from-source", "image"] }
+easy-sdl3-text = "0.4.1"
     

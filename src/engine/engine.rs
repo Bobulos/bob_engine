@@ -31,13 +31,15 @@ impl<'a> Engine<'a> {
             
             println!("ECS initiated ..");
 
-            for i in 0..100
+            for _y in 0..1000
             {
-                let entity_id = w.spawn_entity();
-                let transform_component = Transform::new(Float2 { x: i as f32*100f32, y: 0f32});
-                w.add_component(entity_id, transform_component);
-                let sprite_component  = Sprite::new(0,100,100);
-                w.add_component(entity_id, sprite_component);
+                for _x in 0..1000 {
+                    let entity_id = w.spawn_entity();
+                    let transform_component = Transform::new(Float2 { x: _x as f32*20f32, y: _y as f32*20f32});
+                    w.add_component(entity_id, transform_component);
+                    let sprite_component  = Sprite::new(0,20,20);
+                    w.add_component(entity_id, sprite_component);
+                }
             }
         }
     }
