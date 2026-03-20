@@ -1,46 +1,32 @@
+use crate::core_systems;
 use crate::renderer::Renderer;
-use crate::vec::Float2;
-use crate::renderer_system;
-use crate::dynamic_world::DynamicWorld;
-use crate::sprite::Sprite;
-use crate::transform::Transform;
-use std::collections::btree_map::Range;
-use std::thread;
+use crate::coords::Float2;
 use std::time::Duration;
 use std::time::Instant;
-pub struct Engine<'a> {
+use crate::entities::DynamicWorld;
+pub struct Engine {
     // We use 'a to ensure the Engine doesn't outlive the Renderer it's using
-    pub renderer: &'a mut Renderer<'a>, 
+    pub renderer: Renderer, 
     world: Option<DynamicWorld>
 }
 
-impl<'a> Engine<'a> {
+impl Engine {
     // We take a mutable reference because the engine will need 
     // to tell the renderer to clear/present/draw.
-    pub fn new(renderer: &'a mut Renderer<'a>) -> Self {
+    pub fn new(renderer: Renderer) -> Self {
         Self { renderer, world: None}
     }
     pub  fn init(&mut self) {
 
         self.world = Some(DynamicWorld::new());
+        
+        self.renderer.init();
 
         if let Some(w) = &mut self.world {
             // This populates the Any map with the "Templates"
-            w.register_component::<Sprite>();
-            w.register_component::<Transform>();
             
             println!("ECS initiated ..");
-
-            for _y in 0..1000
-            {
-                for _x in 0..1000 {
-                    let entity_id = w.spawn_entity();
-                    let transform_component = Transform::new(Float2 { x: _x as f32*20f32, y: _y as f32*20f32});
-                    w.add_component(entity_id, transform_component);
-                    let sprite_component  = Sprite::new(0,20,20);
-                    w.add_component(entity_id, sprite_component);
-                }
-            }
+            
         }
     }
     pub fn run(&mut self, mut event_pump: sdl3::EventPump) {
@@ -56,12 +42,15 @@ impl<'a> Engine<'a> {
                     _ => {}
                 }
             }
-
-            // 2. DO WORK
+            
             self.update();
-            self.render(); // Make sure this calls canvas.present()
+            let _ = self.render();
 
-            // 3. SLEEP
+            let elapsed = Instant::now() - frame_start;
+            if elapsed > target_frame_time {
+                println!("Engine running at reduced clock");
+            }
+
             let elapsed = frame_start.elapsed();
             if elapsed < target_frame_time {
                 std::thread::sleep(target_frame_time - elapsed);
@@ -78,13 +67,13 @@ impl<'a> Engine<'a> {
 
     pub fn render(&mut self) -> Result<(), String> {
 
-        let _ = self.renderer.draw_background();
+        //let _ = self.renderer.draw_background();
         //let _ = self.renderer.draw(&self.player); // Assuming draw is a method on Renderer
         //tie in systems
         if let Some(world) = &mut self.world {
-            renderer_system::render_system(world, self.renderer);
+            core_systems::renderer_system::render_system(world, &self.renderer);
         }
-        let _ = self.renderer.present();
+        //let _ = self.renderer.present();
         Ok(())
     }
 }

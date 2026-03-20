@@ -1,4 +1,4 @@
-use crate::vec::Float2;
+use crate::coords::Float2;
 
 pub struct Player
 {

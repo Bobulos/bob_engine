@@ -2,18 +2,11 @@
 // use sdl3::rect::Rect;
 // use std::error::Error;
 // use std::path::Path;
-use crate::renderer::texture_cache::TextureCache;
-#[path ="core_systems/core_components/sprite.rs"]
-pub mod sprite;
-#[path ="core_systems/core_components/transform.rs"]
-pub mod transform;
-#[path ="core_systems/renderer_system.rs"]
-pub mod renderer_system;
-#[path ="renderer/renderer.rs"]
+#[path ="engine/renderer/renderer.rs"]
 pub mod renderer;
 use renderer::Renderer;
-#[path ="math/vec.rs"]
-pub mod vec;
+#[path ="engine/math/vec.rs"]
+pub mod coords;
 #[path ="engine/engine.rs"]
 pub mod engine;
 use  engine::Engine;
@@ -21,8 +14,15 @@ use  engine::Engine;
 pub mod player;
 #[path = "engine/ecs/component_store.rs"]
 pub mod component_store;
-#[path = "engine/ecs/dynamic_world.rs"]
-pub mod dynamic_world;
+
+#[path = "engine/ecs/mod.rs"]
+pub mod entities;
+#[path = "engine/ecs/core_systems/mod.rs"]
+pub mod core_systems;
+#[path = "engine/ecs/core_systems/core_components/mod.rs"]
+pub mod core_components;
+#[path = "engine/renderer/mod.rs"]
+pub mod rendering;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 
@@ -31,15 +31,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let video = sdl.video()?;
     let window = video.window("Bob Engine", 1080, 720).build()?;
     
-    let canvas = window.into_canvas();
-    let creator = canvas.texture_creator(); // <--- The Parent
+
+    //let creator = canvas.texture_creator();
     
-    let mut manager = TextureCache::new(&creator);
-    manager.load("assets/test.png")?;
+    // let mut manager = TextureCache::new(&creator);
+    // manager.load("assets/test.png")?;
     
-    let mut renderer = Renderer::new(canvas, &manager);
+    let mut renderer = Renderer::new(window);
     
-    let mut engine = Engine::new(&mut renderer);
+    let mut engine = Engine::new(renderer);
     engine.init();
 
     let event_pump = sdl.event_pump()?;
