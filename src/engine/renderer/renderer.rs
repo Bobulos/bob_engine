@@ -1,7 +1,5 @@
-use sdl3::render::Canvas;
+
 use sdl3::video::Window;
-use sdl3::rect::Rect;
-use sdl3::render::Texture;
 use std::ffi::CString;
 use crate::rendering::camera::Camera;
 use crate::coords::Float2;

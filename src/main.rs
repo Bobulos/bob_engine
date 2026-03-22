@@ -14,7 +14,6 @@ use  engine::Engine;
 pub mod player;
 #[path = "engine/ecs/component_store.rs"]
 pub mod component_store;
-
 #[path = "engine/ecs/mod.rs"]
 pub mod entities;
 #[path = "engine/ecs/core_systems/mod.rs"]

@@ -122,10 +122,10 @@ impl DynamicWorld {
     }
 
     /// Iterate alive entities with component `A`, applying `filter`.
-    pub fn query_filtered<A: 'static, F: QueryFilter>(
-        &self,
+    pub fn query_filtered<'a, A: 'static, F: QueryFilter + 'a>(
+        &'a self,
         filter: F,
-    ) -> impl Iterator<Item = (Entity, &A)> + '_ {
+    ) -> impl Iterator<Item = (Entity, &'a A)> + 'a {
         let storage = self.get_storage::<A>();
         let max = self.entities_count;
         (0..max).filter_map(move |id| {
@@ -149,10 +149,10 @@ impl DynamicWorld {
         self.query2_filtered::<A, B, NoFilter>(NoFilter)
     }
 
-    pub fn query2_filtered<A: 'static, B: 'static, F: QueryFilter>(
-        &self,
+    pub fn query2_filtered<'a, A: 'static, B: 'static, F: QueryFilter + 'a>(
+        &'a self,
         filter: F,
-    ) -> impl Iterator<Item = (Entity, &A, &B)> + '_ {
+    ) -> impl Iterator<Item = (Entity, &'a A, &'a B)> + 'a {
         let sa = self.get_storage::<A>();
         let sb = self.get_storage::<B>();
         let max = self.entities_count;
@@ -179,10 +179,10 @@ impl DynamicWorld {
         self.query3_filtered::<A, B, C, NoFilter>(NoFilter)
     }
 
-    pub fn query3_filtered<A: 'static, B: 'static, C: 'static, F: QueryFilter>(
-        &self,
+    pub fn query3_filtered<'a, A: 'static, B: 'static, C: 'static, F: QueryFilter + 'a>(
+        &'a self,
         filter: F,
-    ) -> impl Iterator<Item = (Entity, &A, &B, &C)> + '_ {
+    ) -> impl Iterator<Item = (Entity, &'a A, &'a B, &'a C)> + 'a {
         let sa = self.get_storage::<A>();
         let sb = self.get_storage::<B>();
         let sc = self.get_storage::<C>();
@@ -208,9 +208,9 @@ impl DynamicWorld {
     // Returns (Entity, &A, Option<&B>) — entities that have A, optionally B.
     //
 
-    pub fn query_optional<A: 'static, B: 'static>(
-        &self,
-    ) -> impl Iterator<Item = (Entity, &A, Option<&B>)> {
+    pub fn query_optional<'a, A: 'static, B: 'static>(
+        &'a self,
+    ) -> impl Iterator<Item = (Entity, &'a A, Option<&'a B>)> + 'a {
         let sa = self.get_storage::<A>();
         let sb = self.get_storage::<B>();
         let max = self.entities_count;
