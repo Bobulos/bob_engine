@@ -29,7 +29,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sdl = sdl3::init()?;
     let video = sdl.video()?;
     let window = video.window("Bob Engine", 1080, 720).build()?;
-    
 
     //let creator = canvas.texture_creator();
     
@@ -39,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut renderer = Renderer::new(window);
     
     let mut engine = Engine::new(renderer);
-    engine.init();
+    engine.initialize();
 
     let event_pump = sdl.event_pump()?;
     engine.run(event_pump);

@@ -1,9 +1,6 @@
 use crate::entities::dynamic_world::DynamicWorld;
 use crate::renderer::Renderer;
 use crate::entities::core_components::{Sprite,Transform};
-use crate::rendering::renderer;
-
-use sdl3::{render, sys::gpu::SDL_AcquireGPUSwapchainTexture};
 
 // #[path = "../engine//ecs/component_store.rs"]
 // mod component_store;

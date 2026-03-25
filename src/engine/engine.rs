@@ -16,11 +16,11 @@ impl Engine {
     pub fn new(renderer: Renderer) -> Self {
         Self { renderer, world: None}
     }
-    pub  fn init(&mut self) {
+    pub  fn initialize(&mut self) {
 
         self.world = Some(DynamicWorld::new());
         
-        self.renderer.init();
+        pollster::block_on(self.renderer.initialize());
 
         if let Some(w) = &mut self.world {
             // This populates the Any map with the "Templates"
@@ -73,6 +73,7 @@ impl Engine {
         if let Some(world) = &mut self.world {
             core_systems::renderer_system::render_system(world, &self.renderer);
         }
+        self.renderer.render();
         //let _ = self.renderer.present();
         Ok(())
     }
