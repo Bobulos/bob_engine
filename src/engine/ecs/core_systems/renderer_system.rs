@@ -1,5 +1,5 @@
 use crate::entities::dynamic_world::DynamicWorld;
-use crate::renderer::Renderer;
+use crate::rendering::Renderer;
 use crate::entities::core_components::{Sprite,Transform};
 
 // #[path = "../engine//ecs/component_store.rs"]

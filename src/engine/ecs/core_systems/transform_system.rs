@@ -1,8 +1,8 @@
 use crate::entities::core_components::{Transform,Sprite};
 use crate::entities::DynamicWorld;
-use crate::renderer::Renderer;
+use crate::rendering;
 
-pub fn transform_system(world: &DynamicWorld, renderer: &mut Renderer) {
+pub fn transform_system(world: &DynamicWorld, renderer: &mut rendering::Renderer) {
     // If BOTH storages exist, proceed to the block
     if let (Some(sprites), Some(transforms)) = (
         world.get_storage::<Sprite>(), 
