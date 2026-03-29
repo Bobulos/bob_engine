@@ -28,7 +28,7 @@ struct TileUV {
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0)       tex_coords:    vec2<f32>,
+    @location(0)       world_pos:     vec2<f32>,
 };
 
 // ── Vertex shader ──────────────────────────────────────────────────────────────
@@ -38,54 +38,20 @@ struct VertexOutput {
 //   instance_index 0..W*H → which tile in the map
 //
 @vertex
-fn vs_main(
-    @builtin(vertex_index)   vert_idx: u32,
-    @builtin(instance_index) tile_idx: u32,
-) -> VertexOutput {
-
-    // Unit quad corners (two triangles, no index buffer needed)
-    //   3──2
-    //   │ /│
-    //   │/ │
-    //   0──1
+fn vs_main(@builtin(vertex_index) vert_idx: u32) -> VertexOutput {
+    // Single quad covering the entire map
     var positions = array<vec2<f32>, 6>(
-        vec2<f32>(0.0, 0.0), // tri 0: bottom-left
-        vec2<f32>(1.0, 0.0), // tri 0: bottom-right
-        vec2<f32>(1.0, 1.0), // tri 0: top-right
-        vec2<f32>(0.0, 0.0), // tri 1: bottom-left
-        vec2<f32>(1.0, 1.0), // tri 1: top-right
-        vec2<f32>(0.0, 1.0), // tri 1: top-left
+        vec2<f32>(0.0,                    0.0),
+        vec2<f32>(f32(map_info.width),    0.0),
+        vec2<f32>(f32(map_info.width),    f32(map_info.height)),
+        vec2<f32>(0.0,                    0.0),
+        vec2<f32>(f32(map_info.width),    f32(map_info.height)),
+        vec2<f32>(0.0,                    f32(map_info.height)),
     );
-
-    // UV corners matching the positions above
-    var uvs = array<vec2<f32>, 6>(
-        vec2<f32>(0.0, 1.0), // bottom-left  → UV bottom-left
-        vec2<f32>(1.0, 1.0), // bottom-right → UV bottom-right
-        vec2<f32>(1.0, 0.0), // top-right    → UV top-right
-        vec2<f32>(0.0, 1.0), // bottom-left  → UV bottom-left
-        vec2<f32>(1.0, 0.0), // top-right    → UV top-right
-        vec2<f32>(0.0, 0.0), // top-left     → UV top-left
-    );
-
-    // Tile grid position from flat index
-    let tile_x = tile_idx % map_info.width;
-    let tile_y = tile_idx / map_info.width;
-
-    // World position: each tile is 1 world unit; origin at (0,0)
-    // Flip Y so tile_y=0 is at the top, matching typical tilemap convention
-    let world_pos = positions[vert_idx] + vec2<f32>(
-        f32(tile_x),
-        f32(map_info.height - 1u - tile_y),
-    )+map_info.offset;
-
-    // Look up the UV region for this tile type
-    let tile_id = tiles[tile_idx];
-    let uv      = tile_uvs[tile_id];
-    let tex_coords = uv.uv_offset + uvs[vert_idx] * uv.uv_scale;
 
     var out: VertexOutput;
-    out.clip_position = camera.view_proj * vec4<f32>(world_pos, 0.0, 1.0);
-    out.tex_coords    = tex_coords;
+    out.clip_position = camera.view_proj * vec4<f32>(positions[vert_idx] + map_info.offset, 0.0, 1.0);
+    out.world_pos     = positions[vert_idx]; // pass to fragment
     return out;
 }
 
@@ -93,5 +59,22 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(t_diffuse, s_diffuse, in.tex_coords);
+    // Which tile are we in?
+    let tile_x = u32(floor(in.world_pos.x));
+    let tile_y = u32(floor(in.world_pos.y));
+
+    // Clamp to map bounds
+    if tile_x >= map_info.width || tile_y >= map_info.height {
+        return vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    }
+
+    let tile_idx = tile_y * map_info.width + tile_x;
+    let tile_id  = tiles[tile_idx];
+    let uv       = tile_uvs[tile_id];
+
+    // UV within the tile (0..1)
+    let local_uv = fract(in.world_pos);
+    let tex_coords = uv.uv_offset + vec2<f32>(local_uv.x, 1.0 - local_uv.y) * uv.uv_scale;
+
+    return textureSample(t_diffuse, s_diffuse, tex_coords);
 }

@@ -17,7 +17,7 @@ pub struct Engine {
     test_batch: usize,
     test_batch2: usize
 }
-const SPRITE_BATCH_SIZE: usize = 20000; // 2^16
+const SPRITE_BATCH_SIZE: usize = 1000*210; // 2^16
 impl Engine {
     // We take a mutable reference because the engine will need 
     // to tell the renderer to clear/present/draw.
@@ -59,8 +59,8 @@ impl Engine {
         let mut sprite_batch_index : usize = 0;
         if let Some(w) = &mut self.world {
             // This populates the Any map with the "Templates"
-            for y in -100..0 {
-                for x in -100..100 {
+            for y in -10..0 {
+                for x in -10..10 {
                     let e = w.spawn();
                     w.insert(e, entities::core_components::Transform { position: Float2 { x: x as f32, y: y as f32 }});
                     w.insert(e, entities::core_components::Sprite { texture_id: self.test_batch2 as u32, width: 1, height: 1, intra_batch_index: sprite_batch_index, batch_index: self.test_batch2 });
@@ -71,8 +71,7 @@ impl Engine {
         }
 
         let terrain_png = include_bytes!("../../assets/tiles.png");
-        let my_map = vec![0, 1, 0, 1, 0, 1];
-
+        let mut my_map: Vec<u32> = vec![0];
 
         let background = self.renderer.create_tilemap(terrain_png, &my_map, 512, 512, 32);
 
@@ -100,7 +99,7 @@ impl Engine {
     //     self.render();
     //     self.update();
     // }
-    const CAMERA_SPEED: f32 = 0.1;
+    const CAMERA_SPEED: f32 = 1.1;
     pub fn player_loop(&mut self) {
         if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft)) {
             self.renderer.camera.move_by(-Self::CAMERA_SPEED, 0.0);

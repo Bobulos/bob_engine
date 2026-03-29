@@ -61,7 +61,7 @@ impl TilemapRenderer {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding:    3,
-                    visibility: wgpu::ShaderStages::VERTEX,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty:                 wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
@@ -71,7 +71,7 @@ impl TilemapRenderer {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding:    4,
-                    visibility: wgpu::ShaderStages::VERTEX,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty:                 wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
@@ -81,7 +81,7 @@ impl TilemapRenderer {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding:    5,
-                    visibility: wgpu::ShaderStages::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty:                 wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -227,6 +227,6 @@ impl TilemapRenderer {
         rpass.set_pipeline(&self.pipeline);
         rpass.set_bind_group(0, bg, &[]);
         // 6 vertices hardcoded in shader (two triangles), one instance per tile
-        rpass.draw(0..6, 0..(w * h));
+        rpass.draw(0..6, 0..1);
     }
 }
