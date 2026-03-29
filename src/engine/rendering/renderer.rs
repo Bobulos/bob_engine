@@ -350,7 +350,6 @@ impl Renderer {
 
         for batch in &mut self.batches {
             if batch.instances.is_empty() { continue; }
-
             // Reallocate buffer if instances grew beyond capacity
             if batch.instances.len() > batch.instance_capacity {
                 let new_capacity    = batch.instances.len() * 2;

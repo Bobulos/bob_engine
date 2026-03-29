@@ -11,10 +11,6 @@ pub fn render_system(world: &DynamicWorld, renderer: &Renderer) {
 
 fn dispatch(world: &DynamicWorld, renderer: &Renderer) {
 
-    for (entity, pos, vel) in world.query2::<Transform, Sprite>() {
-        println!("  {:?} pos={:?} vel={:?}", entity, pos, vel);
-    }
-
 
     // let camera = ortho(viewport_w as f32, viewport_h as f32);
 

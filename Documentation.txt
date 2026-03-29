@@ -1,0 +1,32 @@
+// ECS queries based on 
+
+// Two components, both mutable
+if let Some(world) = &mut self.world {
+    for (entity, transform, velocity) in world.query2_mut_both::<Transform, Velocity>() {
+        transform.x += velocity.dx;
+        transform.y += velocity.dy;
+    }
+}
+
+// Two components, mutate one read the other
+if let Some(world) = &mut self.world {
+    for (entity, transform, health) in world.query2_mut::<Transform, Health>() {
+        if health.hp <= 0.0 {
+            transform.x = 0.0;
+        }
+    }
+}
+
+// Two components, both immutable
+if let Some(world) = &self.world {
+    for (entity, transform, name) in world.query2::<Transform, Name>() {
+        println!("{:?} is at {}", name, transform.x);
+    }
+}
+
+// Three components
+if let Some(world) = &mut self.world {
+    for (entity, transform, velocity, health) in world.query3_mut::<Transform, Velocity, Health>() {
+        // transform and velocity are &mut, health is &
+    }
+}
