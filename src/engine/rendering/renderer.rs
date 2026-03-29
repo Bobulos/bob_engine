@@ -1,359 +1,412 @@
 use crate::rendering::camera::Camera;
 use crate::rendering::vertex::Vertex;
 use crate::rendering::instance::Instance;
+use crate::rendering::texture::Texture;
 use wgpu::util::DeviceExt;
 use std::sync::Arc;
 use winit::window::Window;
 
+// ── Batch ─────────────────────────────────────────────────────────────────────
+
+pub struct Batch {
+    pub instances:       Vec<Instance>,
+    instance_buffer:     wgpu::Buffer,
+    instance_capacity:   usize,         // track buffer size to know when to reallocate
+    num_instances:       u32,
+    bind_group:          wgpu::BindGroup,
+    _texture:            Texture,       // keeps GPU texture alive
+}
+
+// ── Renderer ──────────────────────────────────────────────────────────────────
+
 pub struct Renderer {
-    instance: wgpu::Instance,
-    surface: Option<wgpu::Surface<'static>>,
-    device: Option<wgpu::Device>,
-    queue: Option<wgpu::Queue>,
-    config: Option<wgpu::SurfaceConfiguration>,
-    pipeline: Option<wgpu::RenderPipeline>,
-    vertex_buffer: Option<wgpu::Buffer>,
-    bind_group: Option<wgpu::BindGroup>,
-    _texture_view: Option<wgpu::TextureView>,
-    _sampler: Option<wgpu::Sampler>,
-    index_buffer: Option<wgpu::Buffer>,
-    num_indices: u32,
-    
+    // ── wgpu core ────────────────────────────────────────────────────────────
+    instance:          wgpu::Instance,
+    adapter:           Option<wgpu::Adapter>,
+    surface:           Option<wgpu::Surface<'static>>,
+    device:            Option<wgpu::Device>,
+    queue:             Option<wgpu::Queue>,
+    config:            Option<wgpu::SurfaceConfiguration>,
 
-    // instance buffer for per-instance data (like transforms)
-    instance_buffer: Option<wgpu::Buffer>,// Gpu buffer
-    pub instances: Vec<Instance>,// Cpu side data for modification
-    num_instances: u32,
+    // ── pipeline ─────────────────────────────────────────────────────────────
+    pipeline:          Option<wgpu::RenderPipeline>,
+    bind_group_layout: Option<wgpu::BindGroupLayout>,
 
+    // ── shared geometry (unit quad, reused by every batch) ───────────────────
+    vertex_buffer:     Option<wgpu::Buffer>,
+    index_buffer:      Option<wgpu::Buffer>,
+    num_indices:       u32,
 
-    // unused rn
-    camera: Camera,
-    camera_buffer: Option<wgpu::Buffer>,
+    // ── camera ───────────────────────────────────────────────────────────────
+    pub camera:        Camera,
+    camera_buffer:     Option<wgpu::Buffer>,
+
+    // ── batches ───────────────────────────────────────────────────────────────
+    pub batches:       Vec<Batch>,
 }
 
 impl Renderer {
     pub fn new() -> Self {
         Self {
-            instance: wgpu::Instance::default(),
-            surface: None,
-            device: None,
-            queue: None,
-            config: None,
-            pipeline: None,
-            vertex_buffer: None,
-
-            //Instances for sprite
-            instances: Vec::new(),
-            instance_buffer: None, // gpu
-            num_instances: 0,
-            camera: Camera::new(1080, 720), // Replace with actual viewport dimensions
-            camera_buffer: None,
-            bind_group: None,
-            _texture_view: None,
-            _sampler: None,
-            index_buffer: None,
-            num_indices: 0,
+            instance:          wgpu::Instance::default(),
+            adapter:           None,
+            surface:           None,
+            device:            None,
+            queue:             None,
+            config:            None,
+            pipeline:          None,
+            bind_group_layout: None,
+            vertex_buffer:     None,
+            index_buffer:      None,
+            num_indices:       0,
+            camera:            Camera::new(1080, 720),
+            camera_buffer:     None,
+            batches:           Vec::new(),
         }
     }
+
+    // ── Public API ────────────────────────────────────────────────────────────
+
+    pub async fn initialize(&mut self, window: Arc<Window>) {
+        let size = window.inner_size();
+        self.camera.zoom = 1.0;
+        self.init_surface_and_device(window).await;
+        self.init_geometry();
+        self.init_pipeline(size);
+        self.init_camera();
+    }
+
     pub fn resize(&mut self, width: u32, height: u32) {
-        if let Some(config) = &mut self.config {
-            config.width = width.max(1);
-            config.height = height.max(1);
-            self.surface.as_ref().unwrap()
-                .configure(self.device.as_ref().unwrap(), config);
-        }
-        self.camera.viewport_width = width;
+        let config = self.config.as_mut().unwrap();
+        config.width  = width.max(1);
+        config.height = height.max(1);
+        self.surface.as_ref().unwrap()
+            .configure(self.device.as_ref().unwrap(), config);
+
+        self.camera.viewport_width  = width;
         self.camera.viewport_height = height;
-        self.update_camera(); // recalculate and reupload matrix
+        self.update_camera();
     }
 
     pub fn update_camera(&self) {
         let matrix = self.camera.build_matrix();
-        self.queue.as_ref().unwrap().write_buffer(
+        self.queue().write_buffer(
             self.camera_buffer.as_ref().unwrap(),
             0,
             bytemuck::cast_slice(&matrix),
         );
     }
-    pub async fn initialize(&mut self, window: Arc<Window>) {
-        
-        let size = window.inner_size();
 
-        let surface = self.instance.create_surface(window).expect("Failed to create surface");
-        let adapter = self.instance.request_adapter(&wgpu::RequestAdapterOptions {
-            compatible_surface: Some(&surface),
-            ..Default::default()
-        }).await.unwrap();
+    /// Creates a new batch from raw PNG bytes and an initial instance list.
+    /// Returns the batch index for later access via `renderer.batches[idx]`.
+    pub fn create_batch(&mut self, tex_bytes: &[u8], instances: Vec<Instance>) -> usize {
+        let tex = Texture::from_bytes(
+            self.device(), self.queue(), tex_bytes, "batch_texture",
+        ).expect("Failed to load batch texture");
 
-        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor::default()).await.unwrap();
-        
-        // !! Test instanceing a texture here !!
-        let mut instances = vec![
-            Instance { position: [-0.5, 0.0], size: [1.0, 1.0], uv_offset: [0.0, 0.0], uv_scale: [1.0, 1.0] },
-            //Instance { position: [ 0.5, 0.0], size: [1.0, 1.0], uv_offset: [0.0, 0.0], uv_scale: [1.0, 1.0] },
-        ];
+        let instance_buffer = self.make_instance_buffer(&instances);
+        let bind_group      = self.make_bind_group(&tex);
 
-        self.num_instances = instances.len() as u32;
-        self.instances = instances;
-        //instances.push(Instance{ position: [0.0, 0.0], size: [0.1, 0.1], uv_offset: [0.0, 0.0], uv_scale: [100.0, 1.0] });
-        
-
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&self.instances),
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, // COPY_DST lets you update it later
-        });
-        self.instance_buffer = Some(instance_buffer);
-        // End of instance buffer test
-
-
-
-
-        let caps = surface.get_capabilities(&adapter);
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: caps.formats[0],
-            width: size.width.max(1),
-            height: size.height.max(1),
-            present_mode: wgpu::PresentMode::AutoVsync,
-            alpha_mode: caps.alpha_modes[0],
-            view_formats: vec![],
-            desired_maximum_frame_latency: 2,
+        let batch = Batch {
+            num_instances:     instances.len() as u32,
+            instance_capacity: instances.len(),
+            instances,
+            instance_buffer,
+            bind_group,
+            _texture: tex,
         };
-        surface.configure(&device, &config);
 
-        // Quad vertices with UV coords
-        let vertices = [
-            Vertex { position: [-0.5,  0.5], tex_coords: [0.0, 0.0] }, // Top Left
-            Vertex { position: [-0.5, -0.5], tex_coords: [0.0, 1.0] }, // Bottom Left
-            Vertex { position: [ 0.5, -0.5], tex_coords: [1.0, 1.0] }, // Bottom Right
-            Vertex { position: [ 0.5,  0.5], tex_coords: [1.0, 0.0] }, // Top Right
-        ];
-
-        // Two triangles forming a quad: (0,1,2) and (0,2,3)
-        let indices: &[u16] = &[0, 1, 2, 0, 2, 3];
-        self.num_indices = indices.len() as u32;
-
-        // Create buffers — only once each
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-
-        // Checkerboard texture
-        let tex_size = 64u32;
-        let mut pixels = Vec::new();
-        for y in 0..tex_size {
-            for x in 0..tex_size {
-                let is_white = ((x / 8) + (y / 8)) % 2 == 0;
-                pixels.extend_from_slice(if is_white { &[255u8, 255, 255, 255] } else { &[255u8, 0, 255, 255] });
-            }
-        }
-
-        let texture = device.create_texture_with_data(
-            &queue,
-            &wgpu::TextureDescriptor {
-                label: Some("Checkerboard Texture"),
-                size: wgpu::Extent3d { width: tex_size, height: tex_size, depth_or_array_layers: 1 },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
-            },
-            wgpu::util::TextureDataOrder::LayerMajor,
-            &pixels,
-        );
-
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
-
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
-        });
-
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Bind Group Layout"),
-            entries: &[
-                // Texture
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                // Sampler
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // Camera uniform
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        });
-        let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Render Pipeline Layout"), // Debug label
-            bind_group_layouts: &[Some(&bind_group_layout)], // Slice of BindGroupLayout references
-            immediate_size: 0, // Used for immediate data (requires specific feature)
-        });
-
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Quad Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[Vertex::layout(), Instance::layout()],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(config.format.into())],
-                compilation_options: Default::default(),
-            }),
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
-        });
-        let camera_matrix = self.camera.build_matrix();
-        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&camera_matrix),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-
-        
-        //let bind_group_layout = pipeline.get_bind_group_layout(0);
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Sprite Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&texture_view) },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&sampler) },
-                wgpu::BindGroupEntry { binding: 2, resource: camera_buffer.as_entire_binding() },
-            ],
-        });
-
-
-        
-        self.camera_buffer = Some(camera_buffer);
-        self.surface = Some(surface);
-        self.device = Some(device);
-        self.queue = Some(queue);
-        self.config = Some(config);
-        self.pipeline = Some(pipeline);
-        self.vertex_buffer = Some(vertex_buffer);
-        self.index_buffer = Some(index_buffer);
-        self.bind_group = Some(bind_group);
-        self._texture_view = Some(texture_view);
-        self._sampler = Some(sampler);
-
+        self.batches.push(batch);
+        self.batches.len() - 1
     }
-    pub fn update_instances(&mut self) {
-        let queue = self.queue.as_ref().unwrap();
-        let buffer = self.instance_buffer.as_ref().unwrap();
-        self.update_camera();
 
-        // integrate with my ECS to update instance data based on entity transforms, etc.
+    /// Replaces the texture on an existing batch (e.g. swapping a sprite sheet).
+    pub fn set_batch_texture(&mut self, batch_idx: usize, tex_bytes: &[u8]) {
+        let tex        = Texture::from_bytes(
+            self.device(), self.queue(), tex_bytes, "batch_texture",
+        ).expect("Failed to load batch texture");
+        let bind_group = self.make_bind_group(&tex);
 
-        self.camera.position[0] += 0.01; // Move camera right over time
-        self.camera.zoom -= 0.01; // Zoom in/out over time
-        for i in 0..self.instances.len() {
-            self.instances[i].position[0] += 0.00; // Move right over time
-            self.instances[i].position[1] += 0.00;
-            if self.instances[i].position[0] > 1.0 {
-                self.instances[i].position[0] = -1.0;
-                self.instances[i].position[1] = -1.0; // Wrap around
-            }
-        }
-
-
-        queue.write_buffer(
-            buffer,
-            0, // Offset
-            bytemuck::cast_slice(self.instances.as_slice()),
-        );
+        let batch          = &mut self.batches[batch_idx];
+        batch.bind_group   = bind_group;
+        batch._texture     = tex;
     }
+
     pub fn render(&mut self) -> Result<(), String> {
-        self.update_instances(); // Update instance data before rendering
+        self.upload_instances();
 
-        
         let surface = self.surface.as_ref().unwrap();
-        let device = self.device.as_ref().unwrap();
-        let queue = self.queue.as_ref().unwrap();
+        let device  = self.device();
+        let queue   = self.queue();
 
         let output = match surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
-            wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => surface_texture,
-            wgpu::CurrentSurfaceTexture::Lost => return Err("Surface lost".into()),
-            wgpu::CurrentSurfaceTexture::Timeout => return Err("Surface timeout".into()),
-            wgpu::CurrentSurfaceTexture::Outdated => return Err("Surface outdated".into()),
-            _ => return Err("Failed to acquire next surface texture".into()),
+            wgpu::CurrentSurfaceTexture::Success(t)    => t,
+            wgpu::CurrentSurfaceTexture::Suboptimal(t) => t,
+            wgpu::CurrentSurfaceTexture::Lost          => return Err("Surface lost".into()),
+            wgpu::CurrentSurfaceTexture::Timeout       => return Err("Surface timeout".into()),
+            wgpu::CurrentSurfaceTexture::Outdated      => return Err("Surface outdated".into()),
+            _                                          => return Err("Failed to acquire texture".into()),
         };
 
-        let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let view    = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let mut enc = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        self.record_render_pass(&mut enc, &view);
 
-        {
-            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Main Render Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                        store: wgpu::StoreOp::Store,
-                    },
-                    depth_slice: None,
-                })],
-                ..Default::default()
-            });
-
-            rpass.set_pipeline(self.pipeline.as_ref().unwrap());
-            rpass.set_bind_group(0, self.bind_group.as_ref().unwrap(), &[]);
-            rpass.set_vertex_buffer(0, self.vertex_buffer.as_ref().unwrap().slice(..));
-            rpass.set_vertex_buffer(1, self.instance_buffer.as_ref().unwrap().slice(..)); // <-- slot 1
-            rpass.set_index_buffer(self.index_buffer.as_ref().unwrap().slice(..), wgpu::IndexFormat::Uint16);
-            rpass.draw_indexed(0..self.num_indices, 0, 0..self.num_instances); 
-        }
-
-        queue.submit(std::iter::once(encoder.finish()));
+        queue.submit(std::iter::once(enc.finish()));
         output.present();
         Ok(())
     }
+
+    // ── Initialization helpers ────────────────────────────────────────────────
+
+    async fn init_surface_and_device(&mut self, window: Arc<Window>) {
+        let surface = self.instance
+            .create_surface(window)
+            .expect("Failed to create surface");
+
+        let adapter = self.instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                compatible_surface: Some(&surface),
+                ..Default::default()
+            })
+            .await
+            .expect("Failed to find adapter");
+
+        let (device, queue) = adapter
+            .request_device(&wgpu::DeviceDescriptor::default())
+            .await
+            .expect("Failed to create device");
+
+        self.surface = Some(surface);
+        self.adapter = Some(adapter);
+        self.device  = Some(device);
+        self.queue   = Some(queue);
+    }
+
+    fn init_geometry(&mut self) {
+        let vertices = [
+            Vertex { position: [-0.5,  0.5], tex_coords: [0.0, 0.0] }, // top-left
+            Vertex { position: [-0.5, -0.5], tex_coords: [0.0, 1.0] }, // bottom-left
+            Vertex { position: [ 0.5, -0.5], tex_coords: [1.0, 1.0] }, // bottom-right
+            Vertex { position: [ 0.5,  0.5], tex_coords: [1.0, 0.0] }, // top-right
+        ];
+        let indices: &[u16] = &[0, 1, 2, 0, 2, 3];
+        self.num_indices = indices.len() as u32;
+
+        self.vertex_buffer = Some(self.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label:    Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage:    wgpu::BufferUsages::VERTEX,
+        }));
+
+        self.index_buffer = Some(self.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label:    Some("Index Buffer"),
+            contents: bytemuck::cast_slice(indices),
+            usage:    wgpu::BufferUsages::INDEX,
+        }));
+    }
+
+    fn init_pipeline(&mut self, size: winit::dpi::PhysicalSize<u32>) {
+        let caps       = self.surface.as_ref().unwrap().get_capabilities(self.adapter.as_ref().unwrap());
+        let format     = caps.formats[0];
+        let alpha_mode = caps.alpha_modes[0];
+
+        let config = wgpu::SurfaceConfiguration {
+            usage:        wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format,
+            width:        size.width.max(1),
+            height:       size.height.max(1),
+            present_mode: wgpu::PresentMode::AutoVsync,
+            alpha_mode,
+            view_formats: vec![],
+            desired_maximum_frame_latency: 10,
+        };
+        self.surface.as_ref().unwrap().configure(self.device(), &config);
+        self.config = Some(config);
+
+        let shader = self.device().create_shader_module(wgpu::ShaderModuleDescriptor {
+            label:  Some("Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
+        });
+
+        let bind_group_layout = self.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label:   Some("Bind Group Layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {             // 0 — texture
+                    binding:    0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type:    wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled:   false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {             // 1 — sampler
+                    binding:    1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty:         wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count:      None,
+                },
+                wgpu::BindGroupLayoutEntry {             // 2 — camera uniform
+                    binding:    2,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty:                 wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size:   None,
+                    },
+                    count: None,
+                },
+            ],
+        });
+
+        let pipeline_layout = self.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label:              Some("Pipeline Layout"),
+            bind_group_layouts: &[Some(&bind_group_layout)],
+            immediate_size:     0,
+        });
+
+        self.pipeline = Some(self.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label:  Some("Quad Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module:              &shader,
+                entry_point:         Some("vs_main"),
+                buffers:             &[Vertex::layout(), Instance::layout()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module:              &shader,
+                entry_point:         Some("fs_main"),
+                targets:             &[Some(format.into())],
+                compilation_options: Default::default(),
+            }),
+            primitive:      wgpu::PrimitiveState::default(),
+            depth_stencil:  None,
+            multisample:    wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache:          None,
+        }));
+
+        self.bind_group_layout = Some(bind_group_layout);
+    }
+
+    fn init_camera(&mut self) {
+        // Use actual surface dimensions, not the hardcoded 1080x720 from new()
+        let config = self.config.as_ref().unwrap();
+        self.camera.viewport_width  = config.width;
+        self.camera.viewport_height = config.height;
+
+        let matrix = self.camera.build_matrix();
+        self.camera_buffer = Some(self.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label:    Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&matrix),
+            usage:    wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        }));
+    }
+
+    // ── Batch helpers ─────────────────────────────────────────────────────────
+
+    fn make_instance_buffer(&self, instances: &[Instance]) -> wgpu::Buffer {
+        // Allocate 2x requested capacity so moderate growth avoids reallocation
+        let capacity = (instances.len() * 2).max(1);
+        let buffer   = self.device().create_buffer(&wgpu::BufferDescriptor {
+            label:              Some("Instance Buffer"),
+            size:               (std::mem::size_of::<Instance>() * capacity) as u64,
+            usage:              wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        // Write initial data
+        self.queue().write_buffer(&buffer, 0, bytemuck::cast_slice(instances));
+        buffer
+    }
+
+    fn make_bind_group(&self, tex: &Texture) -> wgpu::BindGroup {
+        self.device().create_bind_group(&wgpu::BindGroupDescriptor {
+            label:   Some("Batch Bind Group"),
+            layout:  self.bind_group_layout.as_ref().unwrap(),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding:  0,
+                    resource: wgpu::BindingResource::TextureView(&tex.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding:  1,
+                    resource: wgpu::BindingResource::Sampler(&tex.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding:  2,
+                    resource: self.camera_buffer.as_ref().unwrap().as_entire_binding(),
+                },
+            ],
+        })
+    }
+
+    // ── Per-frame helpers ─────────────────────────────────────────────────────
+
+    fn upload_instances(&mut self) {
+        self.update_camera();
+
+        for batch in &mut self.batches {
+            if batch.instances.is_empty() { continue; }
+
+            // Reallocate buffer if instances grew beyond capacity
+            if batch.instances.len() > batch.instance_capacity {
+                let new_capacity    = batch.instances.len() * 2;
+                batch.instance_buffer = self.device.as_ref().unwrap().create_buffer(
+                    &wgpu::BufferDescriptor {
+                        label:              Some("Instance Buffer (resized)"),
+                        size:               (std::mem::size_of::<Instance>() * new_capacity) as u64,
+                        usage:              wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                        mapped_at_creation: false,
+                    }
+                );
+                batch.instance_capacity = new_capacity;
+            }
+
+            batch.num_instances = batch.instances.len() as u32;
+            self.queue.as_ref().unwrap().write_buffer(
+                &batch.instance_buffer,
+                0,
+                bytemuck::cast_slice(&batch.instances),
+            );
+        }
+    }
+
+    fn record_render_pass(&self, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView) {
+        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Main Render Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load:  wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
+                depth_slice: None,
+            })],
+            ..Default::default()
+        });
+
+        rpass.set_pipeline(self.pipeline.as_ref().unwrap());
+        rpass.set_vertex_buffer(0, self.vertex_buffer.as_ref().unwrap().slice(..));
+        rpass.set_index_buffer(
+            self.index_buffer.as_ref().unwrap().slice(..),
+            wgpu::IndexFormat::Uint16,
+        );
+
+        for batch in &self.batches {
+            if batch.num_instances == 0 { continue; }
+
+            rpass.set_bind_group(0, &batch.bind_group, &[]);
+            rpass.set_vertex_buffer(1, batch.instance_buffer.slice(..));
+            rpass.draw_indexed(0..self.num_indices, 0, 0..batch.num_instances);
+        }
+    }
+
+    // ── Convenience accessors ─────────────────────────────────────────────────
+
+    fn device(&self) -> &wgpu::Device { self.device.as_ref().unwrap() }
+    fn queue(&self)  -> &wgpu::Queue  { self.queue.as_ref().unwrap()  }
 }

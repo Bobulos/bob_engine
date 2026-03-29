@@ -28,8 +28,8 @@ impl Camera {
         Self {
             position: [0.0, 0.0],
             zoom: 1.0,
-            viewport_width,
-            viewport_height,
+            viewport_width: 1,
+            viewport_height: 1,
         }
     }
     // Produces an orthographic projection that preserves aspect ratio

@@ -3,10 +3,10 @@ use winit::dpi::{PhysicalSize, Size};
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Fullscreen, Window, WindowAttributes};
-use crate::rendering;
-use crate::engine::Engine;
+use crate::{b_engine, rendering};
+use crate::b_engine::Engine;
 use std::sync::Arc;
-
+use crate::b_engine::Input;
 
 pub static WINDOW_SIZE: (u32, u32) = (1080, 720);
 pub struct App {
@@ -30,9 +30,9 @@ impl ApplicationHandler for App {
             let mut attributes = WindowAttributes::default();
             attributes.title = "Bob Engine".to_string();
             attributes.inner_size = Some(Size::new(Size::Physical(PhysicalSize::new(WINDOW_SIZE.0, WINDOW_SIZE.1))));
-            attributes.fullscreen = Some(Fullscreen::Borderless(None));
+            //attributes.fullscreen = Some(Fullscreen::Borderless(None));
 
-            let window = Arc::new(event_loop.create_window(WindowAttributes::default()).unwrap());
+            let window = Arc::new(event_loop.create_window(attributes).unwrap());
             
             let mut renderer = rendering::Renderer::new();
             pollster::block_on(renderer.initialize(Arc::clone(&window)));
@@ -47,6 +47,11 @@ impl ApplicationHandler for App {
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: winit::window::WindowId, event: WindowEvent) {
         match event {
+            WindowEvent::KeyboardInput { device_id, event, is_synthetic } => {
+                if let Some(engine) = &mut self.engine {
+                    engine.input.receive_input_from_app(event);
+                }
+            }
             WindowEvent::Resized(physical_size) => {
                 if let Some(engine) = &mut self.engine {
                     engine.renderer.resize(physical_size.width, physical_size.height);

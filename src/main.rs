@@ -2,11 +2,10 @@
 // use sdl3::rect::Rect;
 // use std::error::Error;
 // use std::path::Path;
+#[path ="engine/mod.rs"]
+pub mod b_engine;
 #[path ="engine/math/vec.rs"]
 pub mod coords;
-#[path ="engine/engine.rs"]
-pub mod engine;
-use engine::Engine;
 #[path ="test/player.rs"]
 pub mod player;
 #[path = "engine/ecs/component_store.rs"]
@@ -26,6 +25,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("bob_engine running...");
     let event_loop = EventLoop::new()?;
     let mut app = App::default();
-    event_loop.run_app(&mut app);
+    event_loop.run_app(&mut app)?;
     Ok(())
 }
