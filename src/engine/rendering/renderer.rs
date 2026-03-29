@@ -2,6 +2,7 @@ use crate::rendering::camera::Camera;
 use crate::rendering::vertex::Vertex;
 use crate::rendering::instance::Instance;
 use crate::rendering::texture::Texture;
+use crate::rendering;
 use wgpu::util::DeviceExt;
 use std::sync::Arc;
 use winit::window::Window;
@@ -24,7 +25,7 @@ pub struct Renderer {
     instance:          wgpu::Instance,
     adapter:           Option<wgpu::Adapter>,
     surface:           Option<wgpu::Surface<'static>>,
-    device:            Option<wgpu::Device>,
+    pub device:        Option<wgpu::Device>,
     queue:             Option<wgpu::Queue>,
     config:            Option<wgpu::SurfaceConfiguration>,
 
@@ -32,7 +33,7 @@ pub struct Renderer {
     pipeline:          Option<wgpu::RenderPipeline>,
     bind_group_layout: Option<wgpu::BindGroupLayout>,
 
-    // ── shared geometry (unit quad, reused by every batch) ───────────────────
+    // ── shared geometry ───────────────────────────────────────────────────────
     vertex_buffer:     Option<wgpu::Buffer>,
     index_buffer:      Option<wgpu::Buffer>,
     num_indices:       u32,
@@ -43,6 +44,9 @@ pub struct Renderer {
 
     // ── batches ───────────────────────────────────────────────────────────────
     pub batches:       Vec<Batch>,
+
+    // ── tilemap ───────────────────────────────────────────────────────────────
+    pub tilemaps: Vec<rendering::TilemapRenderer>,
 }
 
 impl Renderer {
@@ -61,7 +65,8 @@ impl Renderer {
             num_indices:       0,
             camera:            Camera::new(1080, 720),
             camera_buffer:     None,
-            batches:           Vec::new(),
+            tilemaps:          Vec::new(),
+            batches:           Vec::new()
         }
     }
 
@@ -97,6 +102,36 @@ impl Renderer {
         );
     }
 
+    /// Creates a new tilemap renderer from raw PNG bytes and initial tile data.
+    /// Returns the tilemap index for later access via `renderer.tilemaps[idx]`.
+    pub fn create_tilemap(
+        &mut self,
+        tex_bytes: &[u8],
+        tile_data: &[u32],
+        width:     u32,
+        height:    u32,
+        tile_size: u32,
+    ) -> usize {
+        let mut tilemap = rendering::TilemapRenderer::new(
+            self.device(),
+            self.config.as_ref().unwrap().format,
+            self.camera_buffer.as_ref().unwrap(),
+        );
+
+        tilemap.update(
+            self.device.as_ref().unwrap(),
+            self.queue.as_ref().unwrap(),
+            self.camera_buffer.as_ref().unwrap(),
+            tex_bytes,
+            tile_data,
+            width,
+            height,
+            tile_size,
+        );
+
+        self.tilemaps.push(tilemap);
+        self.tilemaps.len() - 1
+    }
     /// Creates a new batch from raw PNG bytes and an initial instance list.
     /// Returns the batch index for later access via `renderer.batches[idx]`.
     pub fn create_batch(&mut self, tex_bytes: &[u8], instances: Vec<Instance>) -> usize {
@@ -133,6 +168,7 @@ impl Renderer {
     }
 
     pub fn render(&mut self) -> Result<(), String> {
+        self.update_camera();
         self.upload_instances();
 
         let surface = self.surface.as_ref().unwrap();
@@ -156,9 +192,7 @@ impl Renderer {
         output.present();
         Ok(())
     }
-
     // ── Initialization helpers ────────────────────────────────────────────────
-
     async fn init_surface_and_device(&mut self, window: Arc<Window>) {
         let surface = self.instance
             .create_surface(window)
@@ -344,9 +378,27 @@ impl Renderer {
     }
 
     // ── Per-frame helpers ─────────────────────────────────────────────────────
-
+    pub fn update_tilemap(
+        &mut self,
+        idx:       usize,
+        tex_bytes: &[u8],
+        tile_data: &[u32],
+        width:     u32,
+        height:    u32,
+        tile_size: u32,
+    ) {
+        self.tilemaps[idx].update(
+            self.device.as_ref().unwrap(),
+            self.queue.as_ref().unwrap(),
+            self.camera_buffer.as_ref().unwrap(),
+            tex_bytes,
+            tile_data,
+            width,
+            height,
+            tile_size,
+        );
+    }
     fn upload_instances(&mut self) {
-        self.update_camera();
 
         for batch in &mut self.batches {
             if batch.instances.is_empty() { continue; }
@@ -388,16 +440,19 @@ impl Renderer {
             ..Default::default()
         });
 
+        // Draw all tilemaps before sprites
+        for tilemap in &self.tilemaps {
+            tilemap.record(&mut rpass);
+        }
+        
+
+        // Sprites on top
         rpass.set_pipeline(self.pipeline.as_ref().unwrap());
         rpass.set_vertex_buffer(0, self.vertex_buffer.as_ref().unwrap().slice(..));
-        rpass.set_index_buffer(
-            self.index_buffer.as_ref().unwrap().slice(..),
-            wgpu::IndexFormat::Uint16,
-        );
+        rpass.set_index_buffer(self.index_buffer.as_ref().unwrap().slice(..), wgpu::IndexFormat::Uint16);
 
         for batch in &self.batches {
             if batch.num_instances == 0 { continue; }
-
             rpass.set_bind_group(0, &batch.bind_group, &[]);
             rpass.set_vertex_buffer(1, batch.instance_buffer.slice(..));
             rpass.draw_indexed(0..self.num_indices, 0, 0..batch.num_instances);
@@ -407,5 +462,5 @@ impl Renderer {
     // ── Convenience accessors ─────────────────────────────────────────────────
 
     fn device(&self) -> &wgpu::Device { self.device.as_ref().unwrap() }
-    fn queue(&self)  -> &wgpu::Queue  { self.queue.as_ref().unwrap()  }
+    pub fn queue(&self)  -> &wgpu::Queue  { self.queue.as_ref().unwrap()  }
 }

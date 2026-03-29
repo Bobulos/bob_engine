@@ -1,9 +1,7 @@
 use crate::coords::Float2;
-use crate::core_components::sprite;
 use crate::core_systems;
 use crate::entities;
 use crate::rendering::Renderer;
-use std::ops::Add;
 use std::time::Duration;
 use std::time::Instant;
 use std::vec;
@@ -31,12 +29,11 @@ impl Engine {
 
         
         self.world = Some(DynamicWorld::new());
-        // Load sprites and stuff
         _ = self.renderer.create_batch(
             include_bytes!("../../assets/space.jpg"),
             vec![Instance {
                     position:  [0.0, 0.0],
-                    size:      [100.0, 100.0],
+                    size:      [0.0, 0.0],
                     uv_offset: [0.0, 0.0],
                     uv_scale:  [1.0, 1.0],
                 }; 1], // Pre-allocate space for the batch size,
@@ -71,18 +68,16 @@ impl Engine {
                 }
             }
             println!("ECS initiated ..");
-            
         }
 
-        
+        let terrain_png = include_bytes!("../../assets/tiles.png");
+        let my_map = vec![0, 1, 0, 1, 0, 1];
 
-        // if let Some(world) = &mut self.world {
-        //     for (entity, transform, velocity) in world.query2_mut_both::<core_components::Transform, core_components::Sprite>() {
-        //         transform.x += velocity.dx;
-        //         transform.y += velocity.dy;
-        //     }
-        // }
 
+        let background = self.renderer.create_tilemap(terrain_png, &my_map, 512, 512, 32);
+
+        self.renderer.tilemaps[background].move_by(-50.0, -50.0);
+        self.renderer.tilemaps[background].flush_position(self.renderer.queue());
     }
     pub fn run(&mut self) {
         let target_frame_time = Duration::from_secs_f64(1.0 / 60.0);
@@ -126,6 +121,8 @@ impl Engine {
     pub fn update(&mut self) {
         let target = Float2::new(100.0, 100.0);
 
+
+        // Updates the sprites positions on the gpu
         if let Some(world) = &mut self.world {
             for (entity, transform, sprite) in world.query2_mut_both::<core_components::Transform, core_components::Sprite>() {
                 let dir = (target - transform.position).normalize_fast();
@@ -137,11 +134,6 @@ impl Engine {
                     uv_offset: [0.0, 0.0],
                     uv_scale: [1.0, 1.0],
                 };
-            }
-        }
-        if let Some(world) =  &mut self.world {
-            for i in 0..world.entity_count() {
-                world.despawn(entities::Entity(i));
             }
         }
 

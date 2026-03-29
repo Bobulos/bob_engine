@@ -18,6 +18,10 @@ pub mod core_systems;
 pub mod core_components;
 #[path = "engine/rendering/mod.rs"]
 pub mod rendering;
+#[path = "engine/rendering/tilemap/mod.rs"]
+pub mod tilemap;
+
+
 use winit::event_loop::EventLoop;
 use crate::app::App;
 mod app;
