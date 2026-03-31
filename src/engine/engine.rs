@@ -38,6 +38,8 @@ impl Engine {
                     uv_scale:  [1.0, 1.0],
                 }; 1], // Pre-allocate space for the batch size,
         );
+
+        let mut spawned = 0;
         if let Some(world) = &mut self.world {
             let mut sprite_batch_index : usize = 0;
             for b in 0..10 {
@@ -50,19 +52,17 @@ impl Engine {
                         uv_scale:  [1.0, 1.0],
                     }; SPRITE_BATCH_SIZE], // Pre-allocate space for the batch size,
                 );
-                for y in -5..5 {
-                    for x in -5..5 {
-                        let e = world.spawn();
-                        world.insert(e, entities::core_components::Transform { position: Float2 { x: x as f32, y: y as f32 }});
-                        world.insert(e, entities::core_components::Sprite { texture_id: batch as u32, width: 1, height: 1, 
-                            intra_batch_index: sprite_batch_index, batch_index: batch });
-                        sprite_batch_index += 1;
-                    }
+                for y in 0..SPRITE_BATCH_SIZE {
+                    spawned += 1;
+                    let e = world.spawn();
+                    world.insert(e, entities::core_components::Transform { position: Float2 { x: x as f32, y: y as f32 }});
+                    world.insert(e, entities::core_components::Sprite { texture_id: batch as u32, width: 1, height: 1, 
+                        intra_batch_index: sprite_batch_index, batch_index: batch });
+                    sprite_batch_index += 1;
                 }
-            
             }
         }
-        
+        print!("Spawned {} entities", spawned);
         if let Some(w) = &mut self.world {
             // This populates the Any map with the "Templates"
 
