@@ -41,8 +41,8 @@ impl Engine {
 
         let mut spawned = 0;
         if let Some(world) = &mut self.world {
-            let mut sprite_batch_index : usize = 0;
-            for b in 0..10 {
+            for b in 0..50 {
+                let mut sprite_batch_index : usize = 0;
                 let batch = self.renderer.create_batch(
                 include_bytes!("../../assets/Tux.png"),
                 vec![Instance {
@@ -55,7 +55,7 @@ impl Engine {
                 for y in 0..SPRITE_BATCH_SIZE {
                     spawned += 1;
                     let e = world.spawn();
-                    world.insert(e, entities::core_components::Transform { position: Float2 { x: x as f32, y: y as f32 }});
+                    world.insert(e, entities::core_components::Transform { position: Float2 { x: y as f32, y: y as f32 }});
                     world.insert(e, entities::core_components::Sprite { texture_id: batch as u32, width: 1, height: 1, 
                         intra_batch_index: sprite_batch_index, batch_index: batch });
                     sprite_batch_index += 1;
