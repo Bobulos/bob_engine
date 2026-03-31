@@ -253,7 +253,7 @@ impl Renderer {
             present_mode: wgpu::PresentMode::AutoVsync,
             alpha_mode,
             view_formats: vec![],
-            desired_maximum_frame_latency: 10,
+            desired_maximum_frame_latency: 2,
         };
         self.surface.as_ref().unwrap().configure(self.device(), &config);
         self.config = Some(config);

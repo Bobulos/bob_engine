@@ -17,7 +17,7 @@ pub struct Engine {
     test_batch: usize,
     test_batch2: usize
 }
-const SPRITE_BATCH_SIZE: usize = 1000*210; // 2^16
+const SPRITE_BATCH_SIZE: usize = 1024*4; // 2^16
 impl Engine {
     // We take a mutable reference because the engine will need 
     // to tell the renderer to clear/present/draw.
@@ -38,35 +38,34 @@ impl Engine {
                     uv_scale:  [1.0, 1.0],
                 }; 1], // Pre-allocate space for the batch size,
         );
-        self.test_batch = self.renderer.create_batch(
-            include_bytes!("../../assets/grass.png"),
-            vec![Instance {
-                    position:  [0.0, 0.0],
-                    size:      [0.0, 0.0],
-                    uv_offset: [0.0, 0.0],
-                    uv_scale:  [1.0, 1.0],
-                }; SPRITE_BATCH_SIZE], // Pre-allocate space for the batch size,
-        );
-        self.test_batch2 = self.renderer.create_batch(
-            include_bytes!("../../assets/tree.png"),
-            vec![Instance {
-                    position:  [0.0, 0.0],
-                    size:      [0.0, 0.0],
-                    uv_offset: [0.0, 0.0],
-                    uv_scale:  [1.0, 1.0],
-                }; SPRITE_BATCH_SIZE], // Pre-allocate space for the batch size,
-        );
-        let mut sprite_batch_index : usize = 0;
+        if let Some(world) = &mut self.world {
+            let mut sprite_batch_index : usize = 0;
+            for b in 0..10 {
+                let batch = self.renderer.create_batch(
+                include_bytes!("../../assets/Tux.png"),
+                vec![Instance {
+                        position:  [0.0, 0.0],
+                        size:      [0.0, 0.0],
+                        uv_offset: [0.0, 0.0],
+                        uv_scale:  [1.0, 1.0],
+                    }; SPRITE_BATCH_SIZE], // Pre-allocate space for the batch size,
+                );
+                for y in -5..5 {
+                    for x in -5..5 {
+                        let e = world.spawn();
+                        world.insert(e, entities::core_components::Transform { position: Float2 { x: x as f32, y: y as f32 }});
+                        world.insert(e, entities::core_components::Sprite { texture_id: batch as u32, width: 1, height: 1, 
+                            intra_batch_index: sprite_batch_index, batch_index: batch });
+                        sprite_batch_index += 1;
+                    }
+                }
+            
+            }
+        }
+        
         if let Some(w) = &mut self.world {
             // This populates the Any map with the "Templates"
-            for y in -10..0 {
-                for x in -10..10 {
-                    let e = w.spawn();
-                    w.insert(e, entities::core_components::Transform { position: Float2 { x: x as f32, y: y as f32 }});
-                    w.insert(e, entities::core_components::Sprite { texture_id: self.test_batch2 as u32, width: 1, height: 1, intra_batch_index: sprite_batch_index, batch_index: self.test_batch2 });
-                    sprite_batch_index += 1;
-                }
-            }
+
             println!("ECS initiated ..");
         }
 
@@ -148,9 +147,6 @@ impl Engine {
         if let Some(world) = &mut self.world {
             core_systems::renderer_system::render_system(world, &self.renderer);
         }
-        //let _ = self.renderer.present();
-        //self.renderer.set_batch_texture(self.test_batch, include_bytes!("../../assets/test.png"));
-
         self.renderer.render()?;
         Ok(())
     }
