@@ -48,7 +48,7 @@ impl Engine {
                 }; SPRITE_BATCH_SIZE], // Pre-allocate space for the batch size,
         );
         self.test_batch2 = self.renderer.create_batch(
-            include_bytes!("../../assets/Tux.png"),
+            include_bytes!("../../assets/tree.png"),
             vec![Instance {
                     position:  [0.0, 0.0],
                     size:      [0.0, 0.0],
@@ -71,12 +71,14 @@ impl Engine {
         }
 
         let terrain_png = include_bytes!("../../assets/tiles.png");
-        let mut my_map: Vec<u32> = vec![0];
+        let tree_png = include_bytes!("../../assets/grass.png");
+        let my_map: Vec<u32> = vec![0; 10000];
 
         let background = self.renderer.create_tilemap(terrain_png, &my_map, 512, 512, 32);
+        let trees = self.renderer.create_tilemap(tree_png, &my_map, 512, 512, 100);
 
-        self.renderer.tilemaps[background].move_by(-50.0, -50.0);
-        self.renderer.tilemaps[background].flush_position(self.renderer.queue());
+        self.renderer.tilemaps[trees].move_by(0.0, 0.5);
+        self.renderer.tilemaps[trees].flush_position(self.renderer.queue());
     }
     pub fn run(&mut self) {
         let target_frame_time = Duration::from_secs_f64(1.0 / 60.0);
@@ -99,7 +101,7 @@ impl Engine {
     //     self.render();
     //     self.update();
     // }
-    const CAMERA_SPEED: f32 = 1.1;
+    const CAMERA_SPEED: f32 = 1.178657;
     pub fn player_loop(&mut self) {
         if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft)) {
             self.renderer.camera.move_by(-Self::CAMERA_SPEED, 0.0);

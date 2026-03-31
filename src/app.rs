@@ -8,6 +8,7 @@ use crate::b_engine::Engine;
 use std::sync::Arc;
 use crate::b_engine::Input;
 
+
 pub static WINDOW_SIZE: (u32, u32) = (1080, 720);
 pub struct App {
     window: Option<Arc<Window>>,

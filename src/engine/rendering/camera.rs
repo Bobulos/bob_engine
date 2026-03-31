@@ -13,13 +13,13 @@ impl Camera {
     }
 
     pub fn zoom_by(&mut self, factor: f32) {
-        self.zoom = (self.zoom * factor).clamp(0.1, 10000.0);
+        self.zoom = (self.zoom * factor).clamp(0.001, 1.0);
     }
 
     pub fn zoom_towards(&mut self, factor: f32, world_x: f32, world_y: f32) {
         // Zoom keeping a specific world point fixed on screen (e.g. mouse position)
         let old_zoom = self.zoom;
-        self.zoom = (self.zoom * factor).clamp(0.1, 10000.0);
+        self.zoom = (self.zoom * factor).clamp(0.001, 1.0);
         let zoom_change = self.zoom / old_zoom;
         self.position[0] = world_x + (self.position[0] - world_x) / zoom_change;
         self.position[1] = world_y + (self.position[1] - world_y) / zoom_change;
