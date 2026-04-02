@@ -4,11 +4,13 @@ use crate::entities;
 use crate::rendering::Renderer;
 use std::time::Duration;
 use std::time::Instant;
-use std::vec;
+use std::{vec};
+
 use crate::entities::DynamicWorld;
 use crate::b_engine::Input;
 use crate::rendering::Instance;
 use crate::core_components;
+
 pub struct Engine {
     // We use 'a to ensure the Engine doesn't outlive the Renderer it's using
     pub renderer: Renderer, 
@@ -17,7 +19,7 @@ pub struct Engine {
     test_batch: usize,
     test_batch2: usize
 }
-const SPRITE_BATCH_SIZE: usize = 1024*4; // 2^16
+const SPRITE_BATCH_SIZE: usize = 1024; // 2^16
 impl Engine {
     // We take a mutable reference because the engine will need 
     // to tell the renderer to clear/present/draw.
@@ -39,12 +41,20 @@ impl Engine {
                 }; 1], // Pre-allocate space for the batch size,
         );
 
+        let tree_bytes = std::fs::read("assets/tree.png")
+            .expect("Failed to load tree.png");
+
+        // let img = image::load_from_memory_with_format(&tree_bytes, image::ImageFormat::Png)
+        //     .expect("Failed to decode tree texture");
+        let img = image::load_from_memory(&tree_bytes)
+            .expect("Failed to decode tree texture");
+        
         let mut spawned = 0;
         if let Some(world) = &mut self.world {
-            for b in 0..50 {
+            for b in 0..1 {
                 let mut sprite_batch_index : usize = 0;
                 let batch = self.renderer.create_batch(
-                include_bytes!("../../assets/Tux.png"),
+                img.as_bytes(),
                 vec![Instance {
                         position:  [0.0, 0.0],
                         size:      [0.0, 0.0],
@@ -71,7 +81,7 @@ impl Engine {
 
         let terrain_png = include_bytes!("../../assets/tiles.png");
         let tree_png = include_bytes!("../../assets/grass.png");
-        let my_map: Vec<u32> = vec![0; 10000];
+        let my_map = [1; 512*512];
 
         let background = self.renderer.create_tilemap(terrain_png, &my_map, 512, 512, 32);
         let trees = self.renderer.create_tilemap(tree_png, &my_map, 512, 512, 100);
@@ -147,7 +157,6 @@ impl Engine {
         if let Some(world) = &mut self.world {
             core_systems::renderer_system::render_system(world, &self.renderer);
         }
-        self.renderer.render()?;
         Ok(())
     }
 }

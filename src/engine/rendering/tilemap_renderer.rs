@@ -160,7 +160,7 @@ impl TilemapRenderer {
         queue:         &wgpu::Queue,
         camera_buffer: &wgpu::Buffer,
         tex_bytes:     &[u8],
-        tile_data:     &[u32],
+        tile_data:     &[u8],
         width:         u32,
         height:        u32,
         tile_size:     u32,
