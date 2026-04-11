@@ -1,6 +1,6 @@
-use crate::entities::dynamic_world::DynamicWorld;
+use crate::b_engine::entities::DynamicWorld;
 use crate::rendering::Renderer;
-use crate::entities::core_components::{Sprite,Transform};
+use crate::b_engine::entities::core_components::{Sprite,Transform};
 
 // #[path = "../engine//ecs/component_store.rs"]
 // mod component_store;

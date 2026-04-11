@@ -1,23 +1,24 @@
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use crate::component_store::ComponentStore;
-use crate::entities::query::{NoFilter, QueryFilter};
+use crate::b_engine::entities::query::{NoFilter, QueryFilter};
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Entity(pub usize);
 
 pub struct DynamicWorld {
-    storages:       HashMap<TypeId, Box<dyn Any>>,
-    alive:          Vec<bool>,
-    entities_count: usize,
+    storages:       HashMap<TypeId, Arc<RwLock<Box<dyn Any + Send + Sync>>>>,
+    alive:          RwLock<Vec<bool>>,
+    entities_count: RwLock<usize>,
 }
 
 impl DynamicWorld {
     pub fn new() -> Self {
         Self {
             storages:       HashMap::new(),
-            alive:          Vec::new(),
-            entities_count: 0,
+            alive:          RwLock::new(Vec::new()),
+            entities_count: RwLock::new(0),
         }
     }
 

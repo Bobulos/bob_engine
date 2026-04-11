@@ -1,12 +1,11 @@
 use crate::coords::Float2;
-use crate::core_systems;
-use crate::entities;
+use crate::b_engine::entities;
 use crate::rendering::Renderer;
 use std::time::Duration;
 use std::time::Instant;
-use std::{vec};
+use std::{vec,thread};
 
-use crate::entities::DynamicWorld;
+use crate::b_engine::entities::DynamicWorld;
 use crate::b_engine::Input;
 use crate::rendering::Instance;
 use crate::core_components;
@@ -27,7 +26,7 @@ impl Engine {
         Self { renderer: renderer, world: None, input: Input::new(), test_batch: 0, test_batch2: 1 }
     }
 
-    pub fn initialize(&mut self) {
+    pub fn init(&mut self) {
 
         
         self.world = Some(DynamicWorld::new());
@@ -41,20 +40,14 @@ impl Engine {
                 }; 1], // Pre-allocate space for the batch size,
         );
 
-        let tree_bytes = std::fs::read("assets/tree.png")
-            .expect("Failed to load tree.png");
-
-        // let img = image::load_from_memory_with_format(&tree_bytes, image::ImageFormat::Png)
-        //     .expect("Failed to decode tree texture");
-        let img = image::load_from_memory(&tree_bytes)
-            .expect("Failed to decode tree texture");
+        let tree = include_bytes!("../../assets/tree.png");
         
         let mut spawned = 0;
         if let Some(world) = &mut self.world {
             for b in 0..1 {
                 let mut sprite_batch_index : usize = 0;
                 let batch = self.renderer.create_batch(
-                img.as_bytes(),
+                tree,
                 vec![Instance {
                         position:  [0.0, 0.0],
                         size:      [0.0, 0.0],
@@ -80,11 +73,11 @@ impl Engine {
         }
 
         let terrain_png = include_bytes!("../../assets/tiles.png");
-        let tree_png = include_bytes!("../../assets/grass.png");
+        let grass_png = include_bytes!("../../assets/grass.png");
         let my_map = [1; 512*512];
 
-        let background = self.renderer.create_tilemap(terrain_png, &my_map, 512, 512, 32);
-        let trees = self.renderer.create_tilemap(tree_png, &my_map, 512, 512, 100);
+        //let background = self.renderer.create_tilemap(terrain_png, &my_map, 512, 512, 32);
+        let trees = self.renderer.create_tilemap(grass_png, &my_map, 512, 512, 100);
 
         self.renderer.tilemaps[trees].move_by(0.0, 0.5);
         self.renderer.tilemaps[trees].flush_position(self.renderer.queue());
@@ -93,7 +86,7 @@ impl Engine {
         let target_frame_time = Duration::from_secs_f64(1.0 / 60.0);
         let frame_start = Instant::now();
         self.update();
-        let _ = self.render();
+        self.render().expect("Renderer fatal error");
 
         let elapsed = Instant::now() - frame_start;
         print!("\rFrame time: {:.2} ms", elapsed.as_secs_f64() * 1000.0);
@@ -106,10 +99,6 @@ impl Engine {
             std::thread::sleep(target_frame_time - elapsed);
         }
     }
-    // pub fn run(&mut self) {
-    //     self.render();
-    //     self.update();
-    // }
     const CAMERA_SPEED: f32 = 1.178657;
     pub fn player_loop(&mut self) {
         if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft)) {
@@ -130,11 +119,9 @@ impl Engine {
     }
     pub fn update(&mut self) {
         let target = Float2::new(100.0, 100.0);
-
-
         // Updates the sprites positions on the gpu
         if let Some(world) = &mut self.world {
-            for (entity, transform, sprite) in world.query2_mut_both::<core_components::Transform, core_components::Sprite>() {
+            for (_, transform, sprite) in world.query2_mut_both::<core_components::Transform, core_components::Sprite>() {
                 let dir = (target - transform.position).normalize_fast();
                 transform.position += dir * 0.1;
 
@@ -154,9 +141,7 @@ impl Engine {
     }
 
     pub fn render(&mut self) -> Result<(), String> {
-        if let Some(world) = &mut self.world {
-            core_systems::renderer_system::render_system(world, &self.renderer);
-        }
+        self.renderer.render().expect("Fatal error from renderer");
         Ok(())
     }
 }

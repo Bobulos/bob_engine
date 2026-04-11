@@ -72,7 +72,7 @@ impl Renderer {
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    pub async fn initialize(&mut self, window: Arc<Window>) {
+    pub async fn init(&mut self, window: Arc<Window>) {
         let size = window.inner_size();
         self.camera.zoom = 1.0;
         self.init_surface_and_device(window).await;
@@ -242,16 +242,19 @@ impl Renderer {
     }
 
     fn init_pipeline(&mut self, size: winit::dpi::PhysicalSize<u32>) {
-        let caps       = self.surface.as_ref().unwrap().get_capabilities(self.adapter.as_ref().unwrap());
+        let mut caps       = self.surface.as_ref().unwrap().get_capabilities(self.adapter.as_ref().unwrap());
         let format     = caps.formats[0];
-        let alpha_mode = caps.alpha_modes[0];
 
+        let alpha_mode = caps.alpha_modes[0];
+        
         let config = wgpu::SurfaceConfiguration {
             usage:        wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
             width:        size.width.max(1),
             height:       size.height.max(1),
             present_mode: wgpu::PresentMode::AutoVsync,
+
+            // Force overide for alpha fix later with proper caps impl
             alpha_mode,
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
@@ -314,7 +317,13 @@ impl Renderer {
             fragment: Some(wgpu::FragmentState {
                 module:              &shader,
                 entry_point:         Some("fs_main"),
-                targets:             &[Some(format.into())],
+
+                // Hopefully allows for alpha blending
+                targets:             &[Some(wgpu::ColorTargetState { 
+                    format,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING), 
+                    write_mask: wgpu::ColorWrites::COLOR 
+                })],
                 compilation_options: Default::default(),
             }),
             primitive:      wgpu::PrimitiveState::default(),
@@ -328,7 +337,6 @@ impl Renderer {
     }
 
     fn init_camera(&mut self) {
-        // Use actual surface dimensions, not the hardcoded 1080x720 from new()
         let config = self.config.as_ref().unwrap();
         self.camera.viewport_width  = config.width;
         self.camera.viewport_height = config.height;

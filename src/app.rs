@@ -36,10 +36,10 @@ impl ApplicationHandler for App {
             let window = Arc::new(event_loop.create_window(attributes).unwrap());
             
             let mut renderer = rendering::Renderer::new();
-            pollster::block_on(renderer.initialize(Arc::clone(&window)));
+            pollster::block_on(renderer.init(Arc::clone(&window)));
             
             let mut engine = Engine::new(renderer);
-            engine.initialize(); // Setup ECS, etc.
+            engine.init(); // Setup ECS, etc.
 
             self.window = Some(window);
             self.engine = Some(engine);
@@ -56,6 +56,9 @@ impl ApplicationHandler for App {
             WindowEvent::Resized(physical_size) => {
                 if let Some(engine) = &mut self.engine {
                     engine.renderer.resize(physical_size.width, physical_size.height);
+
+                    // I might actually not need this possimbly being called excessively
+                    // Asumes that run doesn't catch it probably doesnt really matter too much.
                     engine.renderer.update_camera();
                 }
             }

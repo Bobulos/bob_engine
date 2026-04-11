@@ -3,7 +3,7 @@
 /// Implement this to add arbitrary per entity conditions on top of a tuple query.
 /// Common built-in filters: `With<T>`, `Without<T>`, `Changed<T>` (see below).
 
-use crate::entities::dynamic_world::DynamicWorld;
+use crate::b_engine::entities::dynamic_world::DynamicWorld;
 pub trait QueryFilter {
     fn matches(&self, entity_id: usize, world: &DynamicWorld) -> bool;
 }

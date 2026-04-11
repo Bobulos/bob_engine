@@ -6,12 +6,8 @@
 pub mod b_engine;
 #[path ="engine/math/vec.rs"]
 pub mod coords;
-#[path ="test/player.rs"]
-pub mod player;
 #[path = "engine/ecs/component_store.rs"]
 pub mod component_store;
-#[path = "engine/ecs/mod.rs"]
-pub mod entities;
 #[path = "engine/ecs/core_systems/mod.rs"]
 pub mod core_systems;
 #[path = "engine/ecs/core_systems/core_components/mod.rs"]
