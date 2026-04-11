@@ -3,7 +3,7 @@ use crate::b_engine::entities;
 use crate::rendering::Renderer;
 use std::time::Duration;
 use std::time::Instant;
-use std::{vec,thread};
+use std::{vec,thread,sync::Arc};
 
 use crate::b_engine::entities::DynamicWorld;
 use crate::b_engine::Input;
@@ -13,7 +13,7 @@ use crate::core_components;
 pub struct Engine {
     // We use 'a to ensure the Engine doesn't outlive the Renderer it's using
     pub renderer: Renderer, 
-    world: Option<DynamicWorld>,
+    world: Arc<DynamicWorld>,
     pub input: Input,
     test_batch: usize,
     test_batch2: usize
@@ -23,13 +23,14 @@ impl Engine {
     // We take a mutable reference because the engine will need 
     // to tell the renderer to clear/present/draw.
     pub fn new(renderer: Renderer) -> Self {
-        Self { renderer: renderer, world: None, input: Input::new(), test_batch: 0, test_batch2: 1 }
+        Self { renderer: renderer, world: Arc::new(DynamicWorld::new()), input: Input::new(), test_batch: 0, test_batch2: 1 }
     }
 
     pub fn init(&mut self) {
 
         
-        self.world = Some(DynamicWorld::new());
+        self.world = Arc::new(DynamicWorld::new());
+
         _ = self.renderer.create_batch(
             include_bytes!("../../assets/space.jpg"),
             vec![Instance {
@@ -43,35 +44,29 @@ impl Engine {
         let tree = include_bytes!("../../assets/tree.png");
         
         let mut spawned = 0;
-        if let Some(world) = &mut self.world {
-            for b in 0..1 {
-                let mut sprite_batch_index : usize = 0;
-                let batch = self.renderer.create_batch(
-                tree,
-                vec![Instance {
-                        position:  [0.0, 0.0],
-                        size:      [0.0, 0.0],
-                        uv_offset: [0.0, 0.0],
-                        uv_scale:  [1.0, 1.0],
-                    }; SPRITE_BATCH_SIZE], // Pre-allocate space for the batch size,
-                );
-                for y in 0..SPRITE_BATCH_SIZE {
-                    spawned += 1;
-                    let e = world.spawn();
-                    world.insert(e, entities::core_components::Transform { position: Float2 { x: y as f32, y: y as f32 }});
-                    world.insert(e, entities::core_components::Sprite { texture_id: batch as u32, width: 1, height: 1, 
-                        intra_batch_index: sprite_batch_index, batch_index: batch });
-                    sprite_batch_index += 1;
-                }
+
+        for b in 0..1 {
+            let mut sprite_batch_index : usize = 0;
+            let batch = self.renderer.create_batch(
+            tree,
+            vec![Instance {
+                    position:  [0.0, 0.0],
+                    size:      [0.0, 0.0],
+                    uv_offset: [0.0, 0.0],
+                    uv_scale:  [1.0, 1.0],
+                }; SPRITE_BATCH_SIZE], // Pre-allocate space for the batch size,
+            );
+            for y in 0..SPRITE_BATCH_SIZE {
+                spawned += 1;
+                let e = self.world.spawn();
+                self.world.insert(e, entities::core_components::Transform { position: Float2 { x: y as f32, y: y as f32 }});
+                self.world.insert(e, entities::core_components::Sprite { texture_id: batch as u32, width: 1, height: 1, 
+                    intra_batch_index: sprite_batch_index, batch_index: batch });
+                sprite_batch_index += 1;
             }
         }
+
         print!("Spawned {} entities", spawned);
-        if let Some(w) = &mut self.world {
-            // This populates the Any map with the "Templates"
-
-            println!("ECS initiated ..");
-        }
-
         let terrain_png = include_bytes!("../../assets/tiles.png");
         let grass_png = include_bytes!("../../assets/grass.png");
         let my_map = [1; 512*512];
@@ -120,19 +115,25 @@ impl Engine {
     pub fn update(&mut self) {
         let target = Float2::new(100.0, 100.0);
         // Updates the sprites positions on the gpu
-        if let Some(world) = &mut self.world {
-            for (_, transform, sprite) in world.query2_mut_both::<core_components::Transform, core_components::Sprite>() {
-                let dir = (target - transform.position).normalize_fast();
-                transform.position += dir * 0.1;
-
+        self.world.for_each2::<core_components::Transform, core_components::Sprite>(|entity, transform, sprite| {
                 self.renderer.batches[sprite.batch_index].instances[sprite.intra_batch_index] = Instance {
-                    position: transform.position.into(),
-                    size: [1.0, 1.0],
-                    uv_offset: [0.0, 0.0],
-                    uv_scale: [1.0, 1.0],
-                };
-            }
-        }
+                position: transform.position.into(),
+                size: [1.0, 1.0],
+                uv_offset: [0.0, 0.0],
+                uv_scale: [1.0, 1.0],
+            };
+        });
+        let clone_wrld  = Arc::clone(&self.world);
+        thread::spawn(move || {
+            clone_wrld.for_each_mut::<core_components::Transform>(|entity, transform| {
+                    transform.position += Float2::new(0.01, 0.0);
+                    for i in 0..1000 {
+                        let c = i as f32;
+                        Float2::distance(transform.position, Float2::new(103.0*c,903.0/c));
+                    }
+                    
+            });
+        });
 
 
         self.player_loop();

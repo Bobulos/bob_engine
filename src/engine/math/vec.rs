@@ -197,6 +197,12 @@ impl Float2 {
         (self - rhs).length()
     }
 
+    /// Square distance between two points.
+    #[inline(always)]
+    pub fn distance_sq(self, rhs: Self) -> f32 {
+        (self - rhs).length_sq()
+    }
+
     /// Reflect `self` about a unit normal `n`.
     #[inline(always)]
     pub fn reflect(self, n: Self) -> Self {

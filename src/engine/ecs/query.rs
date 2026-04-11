@@ -4,73 +4,55 @@
 /// Common built-in filters: `With<T>`, `Without<T>`, `Changed<T>` (see below).
 
 use crate::b_engine::entities::dynamic_world::DynamicWorld;
-pub trait QueryFilter {
+use std::marker::PhantomData;
+use std::any::Any;
+pub trait QueryFilter: Send + Sync {
     fn matches(&self, entity_id: usize, world: &DynamicWorld) -> bool;
 }
 
-// ---------------------------------------------------------------------------
-// With<T>  –  entity must have component T
-// ---------------------------------------------------------------------------
-pub struct With<T: 'static>(std::marker::PhantomData<T>);
+// With<T>
+pub struct With<T: Any + Send + Sync + 'static>(PhantomData<T>);
 
-impl<T: 'static> With<T> {
-    pub fn new() -> Self {
-        Self(std::marker::PhantomData)
-    }
+impl<T: Any + Send + Sync + 'static> With<T> {
+    pub fn new() -> Self { Self(PhantomData) }
 }
 
-impl<T: 'static> QueryFilter for With<T> {
+impl<T: Any + Send + Sync + 'static> QueryFilter for With<T> {
     fn matches(&self, entity_id: usize, world: &DynamicWorld) -> bool {
         world.has_component::<T>(entity_id)
     }
 }
 
-// ---------------------------------------------------------------------------
-// Without<T>  –  entity must NOT have component T
-// ---------------------------------------------------------------------------
-pub struct Without<T: 'static>(std::marker::PhantomData<T>);
+// Without<T>
+pub struct Without<T: Any + Send + Sync + 'static>(PhantomData<T>);
 
-impl<T: 'static> Without<T> {
-    pub fn new() -> Self {
-        Self(std::marker::PhantomData)
-    }
+impl<T: Any + Send + Sync + 'static> Without<T> {
+    pub fn new() -> Self { Self(PhantomData) }
 }
 
-impl<T: 'static> QueryFilter for Without<T> {
+impl<T: Any + Send + Sync + 'static> QueryFilter for Without<T> {
     fn matches(&self, entity_id: usize, world: &DynamicWorld) -> bool {
         !world.has_component::<T>(entity_id)
     }
 }
 
-// ---------------------------------------------------------------------------
-// And<A, B>  –  combine two filters with logical AND
-// ---------------------------------------------------------------------------
+// And / Or / NoFilter don't hold T directly so they just need
+// their inner filters to be Send + Sync, which the trait bound covers
 pub struct And<A: QueryFilter, B: QueryFilter>(pub A, pub B);
-
 impl<A: QueryFilter, B: QueryFilter> QueryFilter for And<A, B> {
     fn matches(&self, entity_id: usize, world: &DynamicWorld) -> bool {
         self.0.matches(entity_id, world) && self.1.matches(entity_id, world)
     }
 }
 
-// ---------------------------------------------------------------------------
-// Or<A, B>  –  combine two filters with logical OR
-// ---------------------------------------------------------------------------
 pub struct Or<A: QueryFilter, B: QueryFilter>(pub A, pub B);
-
 impl<A: QueryFilter, B: QueryFilter> QueryFilter for Or<A, B> {
     fn matches(&self, entity_id: usize, world: &DynamicWorld) -> bool {
         self.0.matches(entity_id, world) || self.1.matches(entity_id, world)
     }
 }
 
-// ---------------------------------------------------------------------------
-// NoFilter  –  pass-through, always true
-// ---------------------------------------------------------------------------
 pub struct NoFilter;
-
 impl QueryFilter for NoFilter {
-    fn matches(&self, _entity_id: usize, _world: &DynamicWorld) -> bool {
-        true
-    }
+    fn matches(&self, _entity_id: usize, _world: &DynamicWorld) -> bool { true }
 }
