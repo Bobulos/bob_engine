@@ -13,3 +13,12 @@ thread::spawn(move || {
         transform.position += Float2::new(0.01, 0.0);      
     });
 });
+
+# Define components as 
+#[derive(Debug, Clone, Copy)]
+pub struct Transform {
+    pub position: Float2
+}
+
+# Avoid using traits like the plague simple methods are OK!
+

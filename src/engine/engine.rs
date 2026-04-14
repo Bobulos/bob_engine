@@ -1,3 +1,4 @@
+use crate::b_engine;
 use crate::coords::Float2;
 use crate::b_engine::entities;
 use crate::rendering::Renderer;
@@ -11,24 +12,22 @@ use crate::rendering::Instance;
 use crate::core_components;
 
 pub struct Engine {
-    // We use 'a to ensure the Engine doesn't outlive the Renderer it's using
     pub renderer: Renderer, 
     world: Arc<DynamicWorld>,
     pub input: Input,
-    test_batch: usize,
-    test_batch2: usize
 }
 const SPRITE_BATCH_SIZE: usize = 1024; // 2^16
 impl Engine {
     // We take a mutable reference because the engine will need 
     // to tell the renderer to clear/present/draw.
     pub fn new(renderer: Renderer) -> Self {
-        Self { renderer: renderer, world: Arc::new(DynamicWorld::new()), input: Input::new(), test_batch: 0, test_batch2: 1 }
+        Self { renderer: renderer, world: Arc::new(DynamicWorld::new()), input: Input::new() }
     }
 
     pub fn init(&mut self) {
 
-        
+        b_engine::entities::system_bootstrap::bootstrap(&self);
+
         self.world = Arc::new(DynamicWorld::new());
 
         _ = self.renderer.create_batch(
@@ -131,7 +130,6 @@ impl Engine {
                         let c = i as f32;
                         Float2::distance(transform.position, Float2::new(103.0*c,903.0/c));
                     }
-                    
             });
         });
 

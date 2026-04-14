@@ -2,11 +2,10 @@ use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalSize, Size};
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
-use winit::window::{Fullscreen, Window, WindowAttributes};
-use crate::{b_engine, rendering};
+use winit::window::{Window, WindowAttributes};
+use crate::{rendering};
 use crate::b_engine::Engine;
 use std::sync::Arc;
-use crate::b_engine::Input;
 
 
 pub static WINDOW_SIZE: (u32, u32) = (1080, 720);
