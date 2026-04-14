@@ -13,10 +13,10 @@ use crate::core_components;
 
 pub struct Engine {
     pub renderer: Renderer, 
-    world: Arc<DynamicWorld>,
+    pub world: Arc<DynamicWorld>,
     pub input: Input,
 }
-const SPRITE_BATCH_SIZE: usize = 1024; // 2^16
+const SPRITE_BATCH_SIZE: usize = 1024*4; // 2^10
 impl Engine {
     // We take a mutable reference because the engine will need 
     // to tell the renderer to clear/present/draw.
@@ -25,10 +25,11 @@ impl Engine {
     }
 
     pub fn init(&mut self) {
+        self.world = Arc::new(DynamicWorld::new());
 
         b_engine::entities::system_bootstrap::bootstrap(&self);
 
-        self.world = Arc::new(DynamicWorld::new());
+        
 
         _ = self.renderer.create_batch(
             include_bytes!("../../assets/space.jpg"),
@@ -38,14 +39,15 @@ impl Engine {
                     uv_offset: [0.0, 0.0],
                     uv_scale:  [1.0, 1.0],
                 }; 1], // Pre-allocate space for the batch size,
+                       // Backgrounds only need 1
         );
 
         let tree = include_bytes!("../../assets/tree.png");
         
         let mut spawned = 0;
 
-        for b in 0..1 {
-            let mut sprite_batch_index : usize = 0;
+        for _batch in 0..1 {
+
             let batch = self.renderer.create_batch(
             tree,
             vec![Instance {
@@ -60,11 +62,9 @@ impl Engine {
                 let e = self.world.spawn();
                 self.world.insert(e, entities::core_components::Transform { position: Float2 { x: y as f32, y: y as f32 }});
                 self.world.insert(e, entities::core_components::Sprite { texture_id: batch as u32, width: 1, height: 1, 
-                    intra_batch_index: sprite_batch_index, batch_index: batch });
-                sprite_batch_index += 1;
+                    intra_batch_index: y, batch_index: batch });
             }
         }
-
         print!("Spawned {} entities", spawned);
         let terrain_png = include_bytes!("../../assets/tiles.png");
         let grass_png = include_bytes!("../../assets/grass.png");
@@ -126,10 +126,12 @@ impl Engine {
         thread::spawn(move || {
             clone_wrld.for_each_mut::<core_components::Transform>(|entity, transform| {
                     transform.position += Float2::new(0.01, 0.0);
-                    for i in 0..1000 {
-                        let c = i as f32;
-                        Float2::distance(transform.position, Float2::new(103.0*c,903.0/c));
-                    }
+            });
+        });
+        let clone_wrld2  = Arc::clone(&self.world);
+        thread::spawn(move || {
+            clone_wrld2.for_each_mut::<core_components::Transform>(|entity, transform| {
+                    transform.position += Float2::new(0.0, 0.01);
             });
         });
 

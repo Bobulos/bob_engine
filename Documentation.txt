@@ -22,3 +22,9 @@ pub struct Transform {
 
 # Avoid using traits like the plague simple methods are OK!
 
+# Managing entities
+let entity = engine.world.spawn();
+# Arc to the dynamic world can be accessed from engine or from a system(Recomended)
+# Add component to an entity
+world.insert(entity, component);
+world.remove(en)
