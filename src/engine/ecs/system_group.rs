@@ -4,6 +4,7 @@ use std::thread;
 use crate::b_engine::entities::{DynamicWorld, SystemBase};
 pub struct SystemGroup {
     //systems: RwLock<Vec<Box<dyn SystemBase>>>,
+    threading: SystemGroupThreading,
     systems: Arc<RwLock<Vec<Box<dyn SystemBase>>>>,
     world: Arc<DynamicWorld>
 }
@@ -12,8 +13,9 @@ pub struct SystemGroup {
 /// Multiple system groups can share a world
 /// Avoid haveing too many system group because each one takes a thread
 impl SystemGroup {
-    pub fn new(world: Arc<DynamicWorld>) -> Self {
+    pub fn new(world: Arc<DynamicWorld>, threading: SystemGroupThreading) -> Self {
         Self {
+            threading: threading,
             systems: Arc::new(RwLock::new(Vec::new())),
             world,
         }
@@ -46,6 +48,7 @@ impl SystemGroup {
             system.on_update(&self.world);
         }
     }
+    /// Runs system on a worker thread
     pub fn run_systems_parrallel(&self) {
         let systems = Arc::clone(&self.systems);
         let world = Arc::clone(&self.world);
@@ -58,4 +61,9 @@ impl SystemGroup {
         });
     }
 
+}
+
+pub enum SystemGroupThreading {
+    Main,
+    Parallel,
 }

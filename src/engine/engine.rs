@@ -1,6 +1,8 @@
 use crate::b_engine;
+use crate::b_engine::entities::SystemBase;
 use crate::b_engine::entities::SystemGroup;
 use crate::b_engine::entities::entities::Entities;
+use crate::b_engine::entities::system_group::SystemGroupThreading;
 use crate::coords::Float2;
 use crate::b_engine::entities;
 use crate::rendering::Renderer;
@@ -12,6 +14,7 @@ use crate::b_engine::entities::DynamicWorld;
 use crate::b_engine::Input;
 use crate::rendering::Instance;
 use crate::core_components;
+use crate::core_systems::render_system;
 
 pub struct Engine {
     pub renderer: Renderer, 
@@ -37,12 +40,18 @@ impl Engine {
         
         self.entities.add_world("defualt", Arc::new(DynamicWorld::new()));
 
+
         let fetched_world = self.entities.get_world("defualt");
         match fetched_world {
-            Ok(value) => self.entities.add_system_group("spooky_group", SystemGroup::new(value)),
+            Ok(value) => self.entities.add_system_group("spooky_group", SystemGroup::new(value, SystemGroupThreading::Main)),
             Err(e) => println!("Error: {}", e),
         }
-        
+        let group = self.entities.get_system_group("spooky_group");
+        match group {
+            Ok(system_group) => system_group.register_system(),
+            Err(e) => println!("Error: {}", e),
+        }
+
         self.entities.add_world("main", Arc::new(DynamicWorld::new()));
 
         b_engine::entities::system_bootstrap::bootstrap(&self);

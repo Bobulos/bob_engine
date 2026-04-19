@@ -15,20 +15,18 @@ impl Entities {
             system_groups: HashMap::new()
         }
     }
-    pub fn add_system_group(&mut self, name: &'static str, group: SystemGroup) {
-        self.system_groups.insert(name, group);
+
+    fn update_system_groups(&mut self) {
+        for system in self.system_groups.iter_mut() {
+            system.1.run_systems();
+        }
     }
+
+    //
+    // WORLDS
+    //
     pub fn add_world(&mut self, name: &'static str, world: Arc<DynamicWorld>) {
         self.worlds.insert(name, world);
-    }
-    pub fn get_system_group(&self, name: &'static str) -> Result<&SystemGroup, String> {
-        let got = self.system_groups.get(name);
-        if let Some(group) = got {
-            Ok(group)
-        } else {
-            let joined = format!("Failed to find world nameof {}", name);
-            Err(joined)
-        }
     }
     pub fn get_world(&self, name: &'static str) -> Result<Arc<DynamicWorld>, String> {
         let w = self.worlds.get(name);
@@ -39,4 +37,20 @@ impl Entities {
             Err(joined)
         }
     }
+    //
+    // SYSTEM GROUPS
+    //
+    pub fn add_system_group(&mut self, name: &'static str, group: SystemGroup) {
+        self.system_groups.insert(name, group);
+    }
+    pub fn get_system_group(&self, name: &'static str) -> Result<&SystemGroup, String> {
+        let got = self.system_groups.get(name);
+        if let Some(group) = got {
+            Ok(group)
+        } else {
+            let joined = format!("Failed to find world nameof {}", name);
+            Err(joined)
+        }
+    }
+
 }
