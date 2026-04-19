@@ -1,4 +1,6 @@
 use crate::b_engine;
+use crate::b_engine::entities::SystemGroup;
+use crate::b_engine::entities::entities::Entities;
 use crate::coords::Float2;
 use crate::b_engine::entities;
 use crate::rendering::Renderer;
@@ -15,17 +17,33 @@ pub struct Engine {
     pub renderer: Renderer, 
     pub world: Arc<DynamicWorld>,
     pub input: Input,
+    pub entities: Entities
 }
 const SPRITE_BATCH_SIZE: usize = 1024*4; // 2^10
 impl Engine {
     // We take a mutable reference because the engine will need 
     // to tell the renderer to clear/present/draw.
     pub fn new(renderer: Renderer) -> Self {
-        Self { renderer: renderer, world: Arc::new(DynamicWorld::new()), input: Input::new() }
+        Self { 
+            renderer: renderer, 
+            world: Arc::new(DynamicWorld::new()), 
+            input: Input::new(), 
+            entities: Entities::new() 
+        }
     }
 
     pub fn init(&mut self) {
-        self.world = Arc::new(DynamicWorld::new());
+
+        
+        self.entities.add_world("defualt", Arc::new(DynamicWorld::new()));
+
+        let fetched_world = self.entities.get_world("defualt");
+        match fetched_world {
+            Ok(value) => self.entities.add_system_group("spooky_group", SystemGroup::new(value)),
+            Err(e) => println!("Error: {}", e),
+        }
+        
+        self.entities.add_world("main", Arc::new(DynamicWorld::new()));
 
         b_engine::entities::system_bootstrap::bootstrap(&self);
 

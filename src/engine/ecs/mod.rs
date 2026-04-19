@@ -4,6 +4,7 @@ pub mod dynamic_world;
 pub mod system_base;
 pub mod system_group;
 pub mod system_bootstrap;
+pub mod entities;
 
 pub use component_store::ComponentStore;
 pub use query::{And, NoFilter, Or, QueryFilter, With, Without};
