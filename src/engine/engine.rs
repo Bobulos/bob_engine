@@ -5,6 +5,7 @@ use crate::b_engine::entities::entities::Entities;
 use crate::b_engine::entities::system_group::SystemGroupThreading;
 use crate::coords::Float2;
 use crate::b_engine::entities;
+use crate::core_systems;
 use crate::rendering::Renderer;
 use std::time::Duration;
 use std::time::Instant;
@@ -46,11 +47,12 @@ impl Engine {
             Ok(value) => self.entities.add_system_group("spooky_group", SystemGroup::new(value, SystemGroupThreading::Main)),
             Err(e) => println!("Error: {}", e),
         }
-        let group = self.entities.get_system_group("spooky_group");
-        match group {
-            Ok(system_group) => system_group.register_system(),
-            Err(e) => println!("Error: {}", e),
-        }
+        let group = self.entities.get_system_group_mut("spooky_group").expect("No findy spooky_group");
+        group.register_system(Box::new(core_systems::render_system::RenderSystem::new()));
+        // match group {
+        //     Ok(system_group) => system_group.register_system(Box::new(core_systems::render_system::RenderSystem::new())),
+        //     Err(e) => println!("Error: {}", e),
+        // }
 
         self.entities.add_world("main", Arc::new(DynamicWorld::new()));
 

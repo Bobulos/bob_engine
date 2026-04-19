@@ -52,5 +52,14 @@ impl Entities {
             Err(joined)
         }
     }
+    pub fn get_system_group_mut(&mut self, name: &'static str) -> Result<&mut SystemGroup, String> {
+        let got = self.system_groups.get_mut(name);
+        if let Some(group) = got {
+            Ok(group)
+        } else {
+            let joined = format!("Failed to find world nameof {}", name);
+            Err(joined)
+        }
+    }
 
 }
