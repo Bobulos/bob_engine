@@ -1,5 +1,6 @@
 pub mod input;
 pub mod engine;
+pub mod asset_management;
 
 pub use input::Input;
 pub use engine::Engine;

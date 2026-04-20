@@ -16,7 +16,7 @@ impl Entities {
         }
     }
 
-    fn update_system_groups(&mut self) {
+    pub fn update_system_groups(&mut self) {
         for system in self.system_groups.iter_mut() {
             system.1.run_systems();
         }

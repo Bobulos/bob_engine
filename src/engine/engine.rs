@@ -15,8 +15,7 @@ use crate::b_engine::entities::DynamicWorld;
 use crate::b_engine::Input;
 use crate::rendering::Instance;
 use crate::core_components;
-use crate::core_systems::render_system;
-
+use crate::b_engine::asset_management::Asset;
 pub struct Engine {
     pub renderer: Renderer, 
     pub world: Arc<DynamicWorld>,
@@ -26,7 +25,7 @@ pub struct Engine {
 const SPRITE_BATCH_SIZE: usize = 1024*4; // 2^10
 impl Engine {
     // We take a mutable reference because the engine will need 
-    // to tell the renderer to clear/present/draw.
+    // to tell the renderer to clear/present/draw.s
     pub fn new(renderer: Renderer) -> Self {
         Self { 
             renderer: renderer, 
@@ -37,10 +36,14 @@ impl Engine {
     }
 
     pub fn init(&mut self) {
+        // Test iterate over all the files in asset folder
+        for file in Asset::iter() {
+            println!("{}", file.as_ref());
+        }
 
-        
+
+
         self.entities.add_world("defualt", Arc::new(DynamicWorld::new()));
-
 
         let fetched_world = self.entities.get_world("defualt");
         match fetched_world {
@@ -71,14 +74,15 @@ impl Engine {
                        // Backgrounds only need 1
         );
 
-        let tree = include_bytes!("../../assets/tree.png");
-        
+        let file = Asset::get("tree.png").unwrap();
+        let bytes: &[u8] = &file.data;
+
         let mut spawned = 0;
 
         for _batch in 0..1 {
 
             let batch = self.renderer.create_batch(
-            tree,
+                bytes,
             vec![Instance {
                     position:  [0.0, 0.0],
                     size:      [0.0, 0.0],
@@ -122,7 +126,7 @@ impl Engine {
             std::thread::sleep(target_frame_time - elapsed);
         }
     }
-    const CAMERA_SPEED: f32 = 1.178657;
+    const CAMERA_SPEED: f32 = 0.1;
     pub fn player_loop(&mut self) {
         if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft)) {
             self.renderer.camera.move_by(-Self::CAMERA_SPEED, 0.0);
@@ -141,6 +145,8 @@ impl Engine {
         }
     }
     pub fn update(&mut self) {
+        self.update_entities();
+
         let target = Float2::new(100.0, 100.0);
         // Updates the sprites positions on the gpu
         self.world.for_each2::<core_components::Transform, core_components::Sprite>(|entity, transform, sprite| {
@@ -169,9 +175,11 @@ impl Engine {
         // FLUSH AT END
         self.input.flush(); // Clear per-frame input state at the start of the frame
     }
-
     pub fn render(&mut self) -> Result<(), String> {
         self.renderer.render().expect("Fatal error from renderer");
         Ok(())
+    }
+    fn update_entities(&mut self) {
+        self.entities.update_system_groups();
     }
 }

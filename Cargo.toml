@@ -14,6 +14,7 @@ winit = "0.30"
 # Use the latest version available (0.17+ as of early 2026)
 # sdl3 = { version = "0.17", features = ["raw-window-handle"] }
 # easy-sdl3-text = "0.4.1"
+rust-embed = { version = "8", features = ["debug-embed"] }
 wgpu = "29.0.0"
 pollster = "0.4.0"
 image = "0.25"
