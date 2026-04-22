@@ -47,18 +47,18 @@ impl ApplicationHandler for App {
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: winit::window::WindowId, event: WindowEvent) {
         match event {
-            WindowEvent::KeyboardInput { device_id, event, is_synthetic } => {
+            WindowEvent::KeyboardInput { device_id: _, event, is_synthetic: _ } => {
                 if let Some(engine) = &mut self.engine {
                     engine.input.receive_input_from_app(event);
                 }
             }
             WindowEvent::Resized(physical_size) => {
                 if let Some(engine) = &mut self.engine {
-                    engine.renderer.resize(physical_size.width, physical_size.height);
+                    engine.renderer.write().unwrap().resize(physical_size.width, physical_size.height);
 
                     // I might actually not need this possimbly being called excessively
                     // Asumes that run doesn't catch it probably doesnt really matter too much.
-                    engine.renderer.update_camera();
+                    engine.renderer.write().unwrap().update_camera();
                 }
             }
             WindowEvent::CloseRequested => event_loop.exit(),

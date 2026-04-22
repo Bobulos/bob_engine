@@ -264,7 +264,7 @@ unsafe fn dot_sse41(a: Float2, b: Float2) -> f32 {
 
 #[cfg(all(target_arch = "x86_64", target_feature = "sse"))]
 #[inline]
-unsafe fn normalize_fast_sse(v: Float2) -> Float2 {
+unsafe fn normalize_fast_sse(v: Float2) -> Float2 { unsafe {
     use std::arch::x86_64::*;
     let vv = _mm_set_ps(0.0, 0.0, v.y, v.x);
     // dot via multiply + horizontal add (SSE only, no SSE4.1)
@@ -278,7 +278,7 @@ unsafe fn normalize_fast_sse(v: Float2) -> Float2 {
     let mut out = [0f32; 4];
     _mm_storeu_ps(out.as_mut_ptr(), r);
     Float2::new(out[0], out[1])
-}
+}}
 
 // ── SIMD helpers (AArch64 NEON) ──────────────────────────────────────────────
 
@@ -571,8 +571,6 @@ macro_rules! impl_binop_i2 {
     };
 }
 
-#[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
-use std::arch::x86_64::{_mm_add_epi32, _mm_mullo_epi32, _mm_sub_epi32};
 
 #[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
 impl_binop_i2!(Add, add, +, _mm_add_epi32);

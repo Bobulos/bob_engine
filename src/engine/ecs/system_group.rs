@@ -24,7 +24,7 @@ impl SystemGroup {
     /// Registers a system and returns it's index in the register
     /// The systems will run in the order registered
     /// Calls on_start() for the system
-    pub fn register_system(&mut self, system: Box<dyn SystemBase + Send + Sync>) -> usize {
+    pub fn register_system(&mut self, mut system: Box<dyn SystemBase + Send + Sync>) -> usize {
         system.on_start(&self.world);
         let mut systems = self.systems.write().unwrap();
         systems.push(system);
@@ -43,8 +43,8 @@ impl SystemGroup {
         
     }
     /// Runs system on the main thread
-    pub fn run_systems(&self) {
-        for system in self.systems.read().unwrap().iter() {
+    pub fn run_systems(&mut self) {
+        for system in self.systems.write().unwrap().iter_mut() {
             system.on_update(&self.world);
         }
     }
@@ -54,8 +54,8 @@ impl SystemGroup {
         let world = Arc::clone(&self.world);
 
         thread::spawn(move || {
-            let systems = systems.read().unwrap();
-            for system in systems.iter() {
+            let mut systems = systems.write().unwrap();
+            for system in systems.iter_mut() {
                 system.on_update(&world);
             }
         });

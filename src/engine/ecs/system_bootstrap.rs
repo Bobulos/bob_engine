@@ -1,5 +1,5 @@
-use crate::b_engine::{Engine, entities::SystemGroup};
+use crate::b_engine::Engine;
 
-pub fn bootstrap(engine: &Engine) {
+pub fn bootstrap(_engine: &Engine) {
     
 }

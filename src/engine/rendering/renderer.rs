@@ -242,7 +242,7 @@ impl Renderer {
     }
 
     fn init_pipeline(&mut self, size: winit::dpi::PhysicalSize<u32>) {
-        let mut caps       = self.surface.as_ref().unwrap().get_capabilities(self.adapter.as_ref().unwrap());
+        let caps       = self.surface.as_ref().unwrap().get_capabilities(self.adapter.as_ref().unwrap());
         let format     = caps.formats[0];
 
         let alpha_mode = caps.alpha_modes[0];

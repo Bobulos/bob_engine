@@ -24,7 +24,7 @@ impl Camera {
         self.position[0] = world_x + (self.position[0] - world_x) / zoom_change;
         self.position[1] = world_y + (self.position[1] - world_y) / zoom_change;
     }
-    pub fn new(viewport_width: u32, viewport_height: u32) -> Self {
+    pub fn new(_viewport_width: u32, _viewport_height: u32) -> Self {
         Self {
             position: [0.0, 0.0],
             zoom: 1.0,

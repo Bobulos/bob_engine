@@ -19,7 +19,7 @@ impl TilemapRenderer {
     pub fn new(
         device:        &wgpu::Device,
         format:        wgpu::TextureFormat,
-        camera_buffer: &wgpu::Buffer,
+        _camera_buffer: &wgpu::Buffer,
     ) -> Self {
         const MAX_TILES: u64 = 256 * 256;
 
