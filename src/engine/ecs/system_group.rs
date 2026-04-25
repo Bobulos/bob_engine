@@ -20,8 +20,13 @@ impl SystemGroup {
             world,
         }
     }
-
-    /// Registers a system and returns it's index in the register
+    pub fn update(&mut self) {
+        match self.threading {
+            SystemGroupThreading::Main => self.run_systems(),
+            SystemGroupThreading::Parallel => self.run_systems_parrallel(),
+        }
+    }
+    /// Registers a system and returns it's index in the group
     /// The systems will run in the order registered
     /// Calls on_start() for the system
     pub fn register_system(&mut self, mut system: Box<dyn SystemBase + Send + Sync>) -> usize {
@@ -44,6 +49,7 @@ impl SystemGroup {
     }
     /// Runs system on the main thread
     pub fn run_systems(&mut self) {
+        //println!("Running system group with {} systems", self.systems.read().unwrap().len());
         for system in self.systems.write().unwrap().iter_mut() {
             system.on_update(&self.world);
         }

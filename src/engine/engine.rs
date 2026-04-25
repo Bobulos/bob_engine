@@ -9,27 +9,27 @@ use crate::rendering::Renderer;
 use std::sync::RwLock;
 use std::time::Duration;
 use std::time::Instant;
-use std::{vec,thread,sync::Arc};
+use std::{vec,sync::Arc};
 
 use crate::b_engine::entities::DynamicWorld;
 use crate::b_engine::Input;
 use crate::rendering::Instance;
-use crate::core_components;
 use crate::b_engine::asset_management::Asset;
 pub struct Engine {
     pub renderer: Arc<RwLock<Renderer>>, 
-    pub world: Arc<DynamicWorld>,
     pub input: Input,
     pub entities: Entities
 }
-const SPRITE_BATCH_SIZE: usize = 1024*4; // 2^10
+pub const MAIN_WORLD: &str = "main";
+pub const RENDER_GROUP: &str = "render_group";
+pub const SPRITE_BATCH_SIZE: usize = 1024*4; // 2^10
+pub const FIXED_DT: f32 = 1.0/60.0; // 2^14
 impl Engine {
     // We take a mutable reference because the engine will need 
     // to tell the renderer to clear/present/draw.s
     pub fn new(renderer: Renderer) -> Self {
         Self { 
             renderer: Arc::new( RwLock::new(renderer)), 
-            world: Arc::new(DynamicWorld::new()), 
             input: Input::new(), 
             entities: Entities::new() 
         }
@@ -50,7 +50,7 @@ impl Engine {
     }
 
     fn setup_world(&mut self) {
-        self.entities.add_world("main", Arc::new(DynamicWorld::new()));
+        self.entities.add_world(MAIN_WORLD, Arc::new(DynamicWorld::new()));
         b_engine::entities::system_bootstrap::bootstrap(&self);
     }
 
@@ -94,13 +94,14 @@ impl Engine {
                     }; SPRITE_BATCH_SIZE],
                 );
 
+            let world = self.entities.get_world(MAIN_WORLD).unwrap();
             for y in 0..SPRITE_BATCH_SIZE {
                 spawned += 1;
-                let e = self.world.spawn();
-                self.world.insert(e, entities::core_components::Transform {
+                let e = world.spawn();
+                world.insert(e, entities::core_components::Transform {
                     position: Float2 { x: y as f32, y: y as f32 },
                 });
-                self.world.insert(e, entities::core_components::Sprite {
+                world.insert(e, entities::core_components::Sprite {
                     texture_id: batch as u32,
                     width: 1,
                     height: 1,
@@ -114,15 +115,39 @@ impl Engine {
     }
 
     fn setup_tilemap(&mut self) {
-        let grass_png = include_bytes!("../../assets/grass.png");
-        let my_map = [1u32; 512 * 512];
+        let tilemap = [0u8; 64 * 64];
 
+
+        let file = Asset::get("grass.png").unwrap();
+        let bytes: &[u8] = &file.data;
+        let test = Asset::get("test.png").unwrap();
+        let test_bytes: &[u8] = &test.data;
         // Acquire the lock once to do all tilemap work — avoids the deadlock
         // that occurs when holding a write guard and calling .queue() via a
         // second write() on the same RwLock in the same expression.
         let mut renderer = self.renderer.write().unwrap();
-        let trees = renderer.create_tilemap(grass_png, &my_map, 512, 512, 100);
-        renderer.tilemaps[trees].move_by(0.0, 0.5);
+        let trees = renderer.create_tilemap(test_bytes, &tilemap, 64, 64, 32);
+        renderer.tilemaps[trees].move_by(0.0, -0.5);
+        let queue = renderer.queue();
+        renderer.tilemaps[trees].flush_position(queue);
+        let trees = renderer.create_tilemap(bytes, &tilemap, 64, 64, 100);
+        renderer.tilemaps[trees].move_by(0.0, 0.0);
+        let queue = renderer.queue();
+        renderer.tilemaps[trees].flush_position(queue);
+
+
+        let trees = renderer.create_tilemap(bytes, &tilemap, 64, 64, 100);
+        renderer.tilemaps[trees].move_by(65.0, 0.0);
+        let queue = renderer.queue();
+        renderer.tilemaps[trees].flush_position(queue);
+
+        let trees = renderer.create_tilemap(bytes, &tilemap, 64, 64, 100);
+        renderer.tilemaps[trees].move_by(65.0, 65.0);
+        let queue = renderer.queue();
+        renderer.tilemaps[trees].flush_position(queue);
+
+        let trees = renderer.create_tilemap(bytes, &tilemap, 64, 64, 100);
+        renderer.tilemaps[trees].move_by(0.0, 65.0);
         let queue = renderer.queue();
         renderer.tilemaps[trees].flush_position(queue);
     }
@@ -130,20 +155,11 @@ impl Engine {
     fn setup_systems(&mut self) {
         println!("Initializing system groups");
 
-        let fetched_world = self.entities.get_world("main");
-        match fetched_world {
-            Ok(world) => self.entities.add_system_group(
-                "render_group",
-                SystemGroup::new(world, SystemGroupThreading::Main),
-            ),
-            Err(e) => println!("Error: {}", e),
-        }
-
-        let group = self.entities
-            .get_system_group_mut("render_group")
-            .expect("render_group missing after registration");
-
-        group.register_system(Box::new(
+        let fetched_world = self.entities.get_world(MAIN_WORLD).unwrap();
+        self.entities.add_system_group(RENDER_GROUP, SystemGroup::new(fetched_world, SystemGroupThreading::Parallel));
+        
+        let group = self.entities.get_system_group_mut(RENDER_GROUP).unwrap();
+        let _rendering_system = group.register_system(Box::new(
             core_systems::render_system::RenderSystem::new(Arc::clone(&self.renderer))
         ));
     }
@@ -183,31 +199,7 @@ impl Engine {
         }
     }
     pub fn update(&mut self) {
-        //sself.update_entities();
-
-        let _target = Float2::new(100.0, 100.0);
-        // Updates the sprites positions on the gpu
-        self.world.for_each2::<core_components::Transform, core_components::Sprite>(|_entity, transform, sprite| {
-                self.renderer.write().unwrap().batches[sprite.batch_index].instances[sprite.intra_batch_index] = Instance {
-                position: transform.position.into(),
-                size: [1.0, 1.0],
-                uv_offset: [0.0, 0.0],
-                uv_scale: [1.0, 1.0],
-            };
-        });
-        let clone_wrld  = Arc::clone(&self.world);
-        thread::spawn(move || {
-            clone_wrld.for_each_mut::<core_components::Transform>(|_entity, transform| {
-                    transform.position += Float2::new(0.01, 0.0);
-            });
-        });
-        let clone_wrld2  = Arc::clone(&self.world);
-        thread::spawn(move || {
-            clone_wrld2.for_each_mut::<core_components::Transform>(|_entity, transform| {
-                    transform.position += Float2::new(0.0, 0.01);
-            });
-        });
-
+        self.update_entities();
 
         self.player_loop();
         // FLUSH AT END

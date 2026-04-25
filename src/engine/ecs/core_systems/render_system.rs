@@ -1,4 +1,4 @@
-use crate::b_engine::entities::{DynamicWorld, SystemBase};
+use crate::b_engine::entities::{DynamicWorld, Entity, SystemBase};
 use crate::b_engine::entities::core_components::{Sprite,Transform};
 use crate::rendering::Renderer;
 use crate::rendering::instance::Instance;
@@ -17,17 +17,11 @@ impl RenderSystem {
     }
 }
 impl SystemBase for RenderSystem {
-    fn on_start(&mut self, _world: &std::sync::Arc<DynamicWorld>) {
+    fn on_start(&mut self, _world: &Arc<DynamicWorld>) {
         
     }
-    fn on_update(&mut self, world: &std::sync::Arc<DynamicWorld>) {
-        world.for_each2::<Transform, Sprite>(|_entity, transform, sprite| {
-            self.renderer.write().unwrap().batches[sprite.batch_index].instances[sprite.intra_batch_index] = Instance {
-                position: transform.position.into(),
-                size: [1.0, 1.0],
-                uv_offset: [0.0, 0.0],
-                uv_scale: [1.0, 1.0],
-            };
+    fn on_update(&mut self, world: &Arc<DynamicWorld>) {
+        world.for_each2_mut::<Transform, Sprite>(|_entity: Entity, transform: &mut Transform, sprite: &Sprite| {
             self.renderer.write().unwrap().batches[sprite.batch_index].instances[sprite.intra_batch_index] = Instance {
                 position: transform.position.into(),
                 size: [1.0, 1.0],
@@ -36,7 +30,7 @@ impl SystemBase for RenderSystem {
             };
         });
     }
-    fn on_destroy(&mut self, _world: &std::sync::Arc<DynamicWorld>) {
+    fn on_destroy(&mut self, _world: &Arc<DynamicWorld>) {
         
     }
 }

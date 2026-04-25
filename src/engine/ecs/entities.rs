@@ -15,10 +15,10 @@ impl Entities {
             system_groups: HashMap::new()
         }
     }
-
+    // Probably dont call this unless you know what your doing, the engine will call this for you
     pub fn update_system_groups(&mut self) {
         for system in self.system_groups.iter_mut() {
-            system.1.run_systems();
+            system.1.update();
         }
     }
 
