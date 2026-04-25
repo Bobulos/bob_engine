@@ -42,10 +42,14 @@ impl SystemGroup {
     }
 
     pub fn start_systems(&self) {
-        
+        for system in self.systems.write().unwrap().iter_mut() {
+            system.on_start(&self.world);
+        }
     }
     pub fn destroy_systems(&self) {
-        
+        for system in self.systems.write().unwrap().iter_mut() {
+            system.on_destroy(&self.world);
+        }
     }
     /// Runs system on the main thread
     pub fn run_systems(&mut self) {

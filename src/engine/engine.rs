@@ -4,6 +4,8 @@ use crate::b_engine::entities::entities::Entities;
 use crate::b_engine::entities::system_group::SystemGroupThreading;
 use crate::coords::Float2;
 use crate::b_engine::entities;
+use crate::core_components::Sprite;
+use crate::core_components::sprite;
 use crate::core_systems;
 use crate::rendering::Renderer;
 use std::sync::RwLock;
@@ -105,8 +107,8 @@ impl Engine {
                     texture_id: batch as u32,
                     width: 1,
                     height: 1,
-                    intra_batch_index: y,
-                    batch_index: batch,
+                    batch_index: y,
+                    index: batch,
                 });
             }
         }
@@ -162,6 +164,19 @@ impl Engine {
         let _rendering_system = group.register_system(Box::new(
             core_systems::render_system::RenderSystem::new(Arc::clone(&self.renderer))
         ));
+        let atlasses = [""; core_systems::sprite_batch_allocator_system::MAX_ATLASES];
+        let _rendering_system = group.register_system(Box::new(
+            core_systems::sprite_batch_allocator_system::SpriteBatchAllocatorSystem::new(Arc::clone(&self.renderer), vec!["tree.png", "Tux.jpg"])
+        ));
+
+        let fetched_world = self.entities.get_world(MAIN_WORLD).unwrap();
+        self.entities.add_system_group("test_group", SystemGroup::new(fetched_world, SystemGroupThreading::Parallel));
+        let group = self.entities.get_system_group_mut("test_group").unwrap();
+        group.register_system(Box::new(
+            core_systems::test_system::TestSystem::new()
+        ));
+        // initialize them jhons
+        self.entities.start_system_groups();
     }
     pub fn run(&mut self) {
         let target_frame_time = Duration::from_secs_f64(1.0 / 60.0);

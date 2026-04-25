@@ -22,7 +22,7 @@ impl SystemBase for RenderSystem {
     }
     fn on_update(&mut self, world: &Arc<DynamicWorld>) {
         world.for_each2_mut::<Transform, Sprite>(|_entity: Entity, transform: &mut Transform, sprite: &Sprite| {
-            self.renderer.write().unwrap().batches[sprite.batch_index].instances[sprite.intra_batch_index] = Instance {
+            self.renderer.write().unwrap().batches[sprite.batch_index].instances[sprite.batch_index] = Instance {
                 position: transform.position.into(),
                 size: [1.0, 1.0],
                 uv_offset: [0.0, 0.0],
