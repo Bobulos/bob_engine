@@ -155,7 +155,25 @@ impl Renderer {
         self.batches.push(batch);
         self.batches.len() - 1
     }
+    /// KILLL at index and replace with new batch.
+    pub fn replace_batch(&mut self, idx: usize, tex_bytes: &[u8], instances: Vec<Instance>) {
+        let tex = Texture::from_bytes(
+            self.device(), self.queue(), tex_bytes, "batch_texture",
+        ).expect("Failed to load batch texture");
 
+        let instance_buffer = self.make_instance_buffer(&instances);
+        let bind_group      = self.make_bind_group(&tex);
+
+        let batch = Batch {
+            num_instances:     instances.len() as u32,
+            instance_capacity: instances.len(),
+            instances,
+            instance_buffer,
+            bind_group,
+            _texture: tex,
+        };
+        self.batches[idx] = batch;
+    }
     /// Replaces the texture on an existing batch (e.g. swapping a sprite sheet).
     pub fn set_batch_texture(&mut self, batch_idx: usize, tex_bytes: &[u8]) {
         let tex        = Texture::from_bytes(

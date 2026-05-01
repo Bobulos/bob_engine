@@ -153,7 +153,6 @@ impl Engine {
         let queue = renderer.queue();
         renderer.tilemaps[trees].flush_position(queue);
     }
-
     fn setup_systems(&mut self) {
         println!("Initializing system groups");
 
@@ -166,7 +165,7 @@ impl Engine {
         ));
         let atlasses = [""; core_systems::sprite_batch_allocator_system::MAX_ATLASES];
         let _rendering_system = group.register_system(Box::new(
-            core_systems::sprite_batch_allocator_system::SpriteBatchAllocatorSystem::new(Arc::clone(&self.renderer), vec!["tree.png", "Tux.jpg"])
+            core_systems::sprite_batch_allocator_system::SpriteBatchAllocatorSystem::modname::new(Arc::clone(&self.renderer), vec!["tree.png", "Tux.jpg"])
         ));
 
         let fetched_world = self.entities.get_world(MAIN_WORLD).unwrap();
@@ -227,4 +226,4 @@ impl Engine {
     fn update_entities(&mut self) {
         self.entities.update_system_groups();
     }
-}
+} 
