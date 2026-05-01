@@ -1,9 +1,9 @@
 use crate::b_engine;
+use crate::b_engine::entities;
 use crate::b_engine::entities::SystemGroup;
 use crate::b_engine::entities::entities::Entities;
 use crate::b_engine::entities::system_group::SystemGroupThreading;
 use crate::coords::Float2;
-use crate::b_engine::entities;
 use crate::core_components::Sprite;
 use crate::core_components::sprite;
 use crate::core_systems;
@@ -11,29 +11,29 @@ use crate::rendering::Renderer;
 use std::sync::RwLock;
 use std::time::Duration;
 use std::time::Instant;
-use std::{vec,sync::Arc};
+use std::{sync::Arc, vec};
 
-use crate::b_engine::entities::DynamicWorld;
 use crate::b_engine::Input;
-use crate::rendering::Instance;
 use crate::b_engine::asset_management::Asset;
+use crate::b_engine::entities::DynamicWorld;
+use crate::rendering::Instance;
 pub struct Engine {
-    pub renderer: Arc<RwLock<Renderer>>, 
+    pub renderer: Arc<RwLock<Renderer>>,
     pub input: Input,
-    pub entities: Entities
+    pub entities: Entities,
 }
 pub const MAIN_WORLD: &str = "main";
 pub const RENDER_GROUP: &str = "render_group";
-pub const SPRITE_BATCH_SIZE: usize = 1024*4; // 2^10
-pub const FIXED_DT: f32 = 1.0/60.0; // 2^14
+pub const SPRITE_BATCH_SIZE: usize = 1024 * 4; // 2^10
+pub const FIXED_DT: f32 = 1.0 / 60.0; // 2^14
 impl Engine {
-    // We take a mutable reference because the engine will need 
+    // We take a mutable reference because the engine will need
     // to tell the renderer to clear/present/draw.s
     pub fn new(renderer: Renderer) -> Self {
-        Self { 
-            renderer: Arc::new( RwLock::new(renderer)), 
-            input: Input::new(), 
-            entities: Entities::new() 
+        Self {
+            renderer: Arc::new(RwLock::new(renderer)),
+            input: Input::new(),
+            entities: Entities::new(),
         }
     }
 
@@ -52,7 +52,8 @@ impl Engine {
     }
 
     fn setup_world(&mut self) {
-        self.entities.add_world(MAIN_WORLD, Arc::new(DynamicWorld::new()));
+        self.entities
+            .add_world(MAIN_WORLD, Arc::new(DynamicWorld::new()));
         b_engine::entities::system_bootstrap::bootstrap(&self);
     }
 
@@ -63,53 +64,61 @@ impl Engine {
     }
 
     fn setup_background(&mut self) {
-        self.renderer
-            .write()
-            .unwrap()
-            .create_batch(
-                include_bytes!("../../assets/space.jpg"),
-                vec![Instance {
-                    position:  [0.0, 0.0],
-                    size:      [0.0, 0.0],
+        self.renderer.write().unwrap().create_batch(
+            include_bytes!("../../assets/space.jpg"),
+            vec![
+                Instance {
+                    position: [0.0, 0.0],
+                    size: [0.0, 0.0],
                     uv_offset: [0.0, 0.0],
-                    uv_scale:  [1.0, 1.0],
-                }; 1],
-            );
+                    uv_scale: [1.0, 1.0],
+                };
+                1
+            ],
+        );
     }
 
     fn setup_sprites(&mut self) {
         let file = Asset::get("tree.png").unwrap();
         let bytes: &[u8] = &file.data;
         let mut spawned = 0;
-
         for _ in 0..1 {
-            let batch = self.renderer
-                .write()
-                .unwrap()
-                .create_batch(
-                    bytes,
-                    vec![Instance {
-                        position:  [0.0, 0.0],
-                        size:      [0.0, 0.0],
+            let batch = self.renderer.write().unwrap().create_batch(
+                bytes,
+                vec![
+                    Instance {
+                        position: [0.0, 0.0],
+                        size: [0.0, 0.0],
                         uv_offset: [0.0, 0.0],
-                        uv_scale:  [1.0, 1.0],
-                    }; SPRITE_BATCH_SIZE],
-                );
+                        uv_scale: [1.0, 1.0],
+                    };
+                    SPRITE_BATCH_SIZE
+                ],
+            );
 
             let world = self.entities.get_world(MAIN_WORLD).unwrap();
             for y in 0..SPRITE_BATCH_SIZE {
                 spawned += 1;
                 let e = world.spawn();
-                world.insert(e, entities::core_components::Transform {
-                    position: Float2 { x: y as f32, y: y as f32 },
-                });
-                world.insert(e, entities::core_components::Sprite {
-                    texture_id: batch as u32,
-                    width: 1,
-                    height: 1,
-                    batch_index: y,
-                    index: batch,
-                });
+                world.insert(
+                    e,
+                    entities::core_components::Transform {
+                        position: Float2 {
+                            x: y as f32,
+                            y: y as f32,
+                        },
+                    },
+                );
+                world.insert(
+                    e,
+                    entities::core_components::Sprite {
+                        texture_id: batch as u32,
+                        width: 1,
+                        height: 1,
+                        batch_index: y,
+                        index: batch,
+                    },
+                );
             }
         }
 
@@ -118,8 +127,6 @@ impl Engine {
 
     fn setup_tilemap(&mut self) {
         let tilemap = [0u8; 64 * 64];
-
-
         let file = Asset::get("grass.png").unwrap();
         let bytes: &[u8] = &file.data;
         let test = Asset::get("test.png").unwrap();
@@ -136,7 +143,6 @@ impl Engine {
         renderer.tilemaps[trees].move_by(0.0, 0.0);
         let queue = renderer.queue();
         renderer.tilemaps[trees].flush_position(queue);
-
 
         let trees = renderer.create_tilemap(bytes, &tilemap, 64, 64, 100);
         renderer.tilemaps[trees].move_by(65.0, 0.0);
@@ -157,23 +163,30 @@ impl Engine {
         println!("Initializing system groups");
 
         let fetched_world = self.entities.get_world(MAIN_WORLD).unwrap();
-        self.entities.add_system_group(RENDER_GROUP, SystemGroup::new(fetched_world, SystemGroupThreading::Parallel));
-        
+        self.entities.add_system_group(
+            RENDER_GROUP,
+            SystemGroup::new(fetched_world, SystemGroupThreading::Parallel),
+        );
+
         let group = self.entities.get_system_group_mut(RENDER_GROUP).unwrap();
         let _rendering_system = group.register_system(Box::new(
-            core_systems::render_system::RenderSystem::new(Arc::clone(&self.renderer))
+            core_systems::render_system::RenderSystem::new(Arc::clone(&self.renderer)),
         ));
         let atlasses = [""; core_systems::sprite_batch_allocator_system::MAX_ATLASES];
         let _rendering_system = group.register_system(Box::new(
-            core_systems::sprite_batch_allocator_system::SpriteBatchAllocatorSystem::modname::new(Arc::clone(&self.renderer), vec!["tree.png", "Tux.jpg"])
+            core_systems::sprite_batch_allocator_system::SpriteBatchAllocatorSystem::modname::new(
+                Arc::clone(&self.renderer),
+                vec!["tree.png", "Tux.jpg"],
+            ),
         ));
 
         let fetched_world = self.entities.get_world(MAIN_WORLD).unwrap();
-        self.entities.add_system_group("test_group", SystemGroup::new(fetched_world, SystemGroupThreading::Parallel));
+        self.entities.add_system_group(
+            "test_group",
+            SystemGroup::new(fetched_world, SystemGroupThreading::Parallel),
+        );
         let group = self.entities.get_system_group_mut("test_group").unwrap();
-        group.register_system(Box::new(
-            core_systems::test_system::TestSystem::new()
-        ));
+        group.register_system(Box::new(core_systems::test_system::TestSystem::new()));
         // initialize them jhons
         self.entities.start_system_groups();
     }
@@ -196,18 +209,51 @@ impl Engine {
     }
     const CAMERA_SPEED: f32 = 0.1;
     pub fn player_loop(&mut self) {
-        if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft)) {
-            self.renderer.write().unwrap().camera.move_by(-Self::CAMERA_SPEED, 0.0);
-        } if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight)) {
-            self.renderer.write().unwrap().camera.move_by(Self::CAMERA_SPEED, 0.0);
-        } if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp)) {
-            self.renderer.write().unwrap().camera.move_by(0.0, Self::CAMERA_SPEED);
-        } if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown)) {
-            self.renderer.write().unwrap().camera.move_by(0.0, -Self::CAMERA_SPEED);
-        } if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Digit1)) {
+        if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(
+            winit::keyboard::KeyCode::ArrowLeft,
+        )) {
+            self.renderer
+                .write()
+                .unwrap()
+                .camera
+                .move_by(-Self::CAMERA_SPEED, 0.0);
+        }
+        if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(
+            winit::keyboard::KeyCode::ArrowRight,
+        )) {
+            self.renderer
+                .write()
+                .unwrap()
+                .camera
+                .move_by(Self::CAMERA_SPEED, 0.0);
+        }
+        if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(
+            winit::keyboard::KeyCode::ArrowUp,
+        )) {
+            self.renderer
+                .write()
+                .unwrap()
+                .camera
+                .move_by(0.0, Self::CAMERA_SPEED);
+        }
+        if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(
+            winit::keyboard::KeyCode::ArrowDown,
+        )) {
+            self.renderer
+                .write()
+                .unwrap()
+                .camera
+                .move_by(0.0, -Self::CAMERA_SPEED);
+        }
+        if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(
+            winit::keyboard::KeyCode::Digit1,
+        )) {
             self.renderer.write().unwrap().camera.zoom_by(1.01);
             self.renderer.write().unwrap().update_camera();
-        } if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Digit2)) {
+        }
+        if self.input.get_key_down(winit::keyboard::PhysicalKey::Code(
+            winit::keyboard::KeyCode::Digit2,
+        )) {
             self.renderer.write().unwrap().camera.zoom_by(0.99);
             self.renderer.write().unwrap().update_camera();
         }
@@ -220,10 +266,14 @@ impl Engine {
         self.input.flush(); // Clear per-frame input state at the start of the frame
     }
     pub fn render(&mut self) -> Result<(), String> {
-        self.renderer.write().unwrap().render().expect("Fatal error from renderer");
+        self.renderer
+            .write()
+            .unwrap()
+            .render()
+            .expect("Fatal error from renderer");
         Ok(())
     }
     fn update_entities(&mut self) {
         self.entities.update_system_groups();
     }
-} 
+}
