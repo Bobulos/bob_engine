@@ -1,6 +1,6 @@
 use crate::b_engine::entities::{DynamicWorld, Entity, SystemBase};
-use crate::b_engine::entities::core_components::{Sprite,Transform};
-use std::sync::{Arc, RwLock};
+use crate::b_engine::entities::core_components::Transform;
+use std::sync::Arc;
 use crate::b_engine;
 // #[path = "../engine//ecs/component_store.rs"]
 // mod component_store;
