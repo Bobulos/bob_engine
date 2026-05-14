@@ -1,12 +1,14 @@
-use std::sync::{Arc,RwLock};
+use crate::b_engine::system_bootstrap;
+use std::sync::{Arc, RwLock};
 use std::thread;
 
 use crate::b_engine::entities::{DynamicWorld, SystemBase};
 pub struct SystemGroup {
     //systems: RwLock<Vec<Box<dyn SystemBase>>>,
     threading: SystemGroupThreading,
+    update_order: Vec<i16>,
     systems: Arc<RwLock<Vec<Box<dyn SystemBase>>>>,
-    world: Arc<DynamicWorld>
+    world: Arc<DynamicWorld>,
 }
 
 /// All systems registered to a system group run on the same thread
@@ -15,6 +17,7 @@ pub struct SystemGroup {
 impl SystemGroup {
     pub fn new(world: Arc<DynamicWorld>, threading: SystemGroupThreading) -> Self {
         Self {
+            update_order: Vec::new(),
             threading: threading,
             systems: Arc::new(RwLock::new(Vec::new())),
             world,
@@ -27,12 +30,16 @@ impl SystemGroup {
         }
     }
     /// Registers a system and returns it's index in the group
-    /// The systems will run in the order registered
-    /// Calls on_start() for the system
-    pub fn register_system(&mut self, mut system: Box<dyn SystemBase + Send + Sync>) -> usize {
-        system.on_start(&self.world);
+    /// Update order dictates when the system starts
+    /// also dictates the update order of the system
+    pub fn register_system(
+        &mut self,
+        mut system: Box<dyn SystemBase + Send + Sync>,
+        order: i16,
+    ) -> usize {
         let mut systems = self.systems.write().unwrap();
         systems.push(system);
+        self.update_order.push(order);
         systems.len() - 1
     }
     pub fn destroy_system(&mut self, system_index: usize) {
@@ -40,7 +47,11 @@ impl SystemGroup {
         systems[system_index].on_destroy(&self.world);
         systems.remove(system_index);
     }
-
+    fn sort_systems(&mut self) {
+        for (i, order) in self.update_order.iter().enumerate() {
+            let value = *order as i16;
+        }
+    }
     pub fn start_systems(&self) {
         for system in self.systems.write().unwrap().iter_mut() {
             system.on_start(&self.world);
@@ -70,7 +81,6 @@ impl SystemGroup {
             }
         });
     }
-
 }
 
 pub enum SystemGroupThreading {

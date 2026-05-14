@@ -1,11 +1,13 @@
-use crate::b_engine;
 use crate::b_engine::entities;
-use crate::b_engine::entities::SystemGroup;
 use crate::b_engine::entities::entities::Entities;
-use crate::b_engine::entities::system_group::SystemGroupThreading;
+use crate::b_engine::system_bootstrap;
 use crate::coords::Float2;
+<<<<<<< HEAD
 use crate::core_systems;
+=======
+>>>>>>> d5837ed729dd93e5682bced21b1ba93bb2a5a5e6
 use crate::rendering::Renderer;
+use crate::rendering::renderer;
 use std::sync::RwLock;
 use std::time::Duration;
 use std::time::Instant;
@@ -24,7 +26,12 @@ pub const MAIN_WORLD: &str = "main";
 pub const RENDER_GROUP: &str = "render_group";
 pub const SPRITE_BATCH_SIZE: usize = 1024 * 4; // 2^10
 pub const FIXED_DT: f32 = 1.0 / 60.0; // 2^14
+<<<<<<< HEAD
 pub const INCLUDE_ATLAS: &[&str] = &["tree.png", "Tux.png"];
+=======
+
+pub const INCLUDED_TEXTURES: &[&str] = &["tree.png", "Tux.png"];
+>>>>>>> d5837ed729dd93e5682bced21b1ba93bb2a5a5e6
 impl Engine {
     // We take a mutable reference because the engine will need
     // to tell the renderer to clear/present/draw.s
@@ -40,7 +47,7 @@ impl Engine {
         self.debug_list_assets();
         self.setup_world();
         self.setup_renderer();
-        self.setup_systems();
+        self.bootstrap_systems();
         println!("Engine initialized");
     }
 
@@ -53,7 +60,6 @@ impl Engine {
     fn setup_world(&mut self) {
         self.entities
             .add_world(MAIN_WORLD, Arc::new(DynamicWorld::new()));
-        b_engine::entities::system_bootstrap::bootstrap(&self);
     }
 
     fn setup_renderer(&mut self) {
@@ -74,13 +80,38 @@ impl Engine {
                 };
                 1
             ],
+            Some(renderer::PipelineKey::Default),
         );
     }
 
     fn setup_sprites(&mut self) {
+<<<<<<< HEAD
         let world = self.entities.get_world(MAIN_WORLD).unwrap();
         for y in 0..64 {
             for x in 0..64 {
+=======
+        let file = Asset::get("tree.png").unwrap();
+        let bytes: &[u8] = &file.data;
+        let mut spawned = 0;
+        for _ in 0..1 {
+            let batch = self.renderer.write().unwrap().create_batch(
+                bytes,
+                vec![
+                    Instance {
+                        position: [0.0, 0.0],
+                        size: [0.0, 0.0],
+                        uv_offset: [0.0, 0.0],
+                        uv_scale: [1.0, 1.0],
+                    };
+                    SPRITE_BATCH_SIZE
+                ],
+                Some(renderer::PipelineKey::Default),
+            );
+
+            let world = self.entities.get_world(MAIN_WORLD).unwrap();
+            for y in 0..SPRITE_BATCH_SIZE {
+                spawned += 1;
+>>>>>>> d5837ed729dd93e5682bced21b1ba93bb2a5a5e6
                 let e = world.spawn();
                 world.insert(
                     e,
@@ -159,8 +190,9 @@ impl Engine {
         let queue = renderer.queue();
         renderer.tilemaps[trees].flush_position(queue);
     }
-    fn setup_systems(&mut self) {
+    fn bootstrap_systems(&mut self) {
         println!("Initializing system groups");
+<<<<<<< HEAD
 
         let fetched_world = self.entities.get_world(MAIN_WORLD).unwrap();
         self.entities.add_system_group(
@@ -187,6 +219,9 @@ impl Engine {
         );
         let group = self.entities.get_system_group_mut("test_group").unwrap();
         group.register_system(Box::new(core_systems::test_system::TestSystem::new()));
+=======
+        system_bootstrap::bootstrap_systems(self);
+>>>>>>> d5837ed729dd93e5682bced21b1ba93bb2a5a5e6
         // initialize them jhons
         self.entities.start_system_groups();
     }
