@@ -1,9 +1,3 @@
-<<<<<<< HEAD
-=======
-use crate::b_engine::entities::{DynamicWorld, Entity, SystemBase};
-use crate::b_engine::entities::core_components::Transform;
-use std::sync::Arc;
->>>>>>> d5837ed729dd93e5682bced21b1ba93bb2a5a5e6
 use crate::b_engine;
 use crate::b_engine::entities::core_components::Transform;
 use crate::b_engine::entities::{DynamicWorld, Entity, SystemBase};

@@ -1,36 +1,24 @@
-<<<<<<< HEAD:src/engine/ecs/core_systems/sprite_batch_allocator_system.rs
 use crate::b_engine;
 use crate::b_engine::asset_management::Asset;
 use crate::b_engine::entities::Entity;
 use crate::b_engine::entities::{DynamicWorld, SystemBase};
 use crate::core_components::Sprite;
 use crate::rendering::{Instance, Renderer};
-=======
-use crate::b_engine::asset_management::Asset;
-use crate::b_engine::entities::{DynamicWorld, SystemBase};
-use crate::rendering::Renderer;
->>>>>>> d5837ed729dd93e5682bced21b1ba93bb2a5a5e6:src/engine/rendering/sprite_batch_allocator_system.rs
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 pub const MAX_ATLASES: usize = 32;
 const UNASSIGNED: usize = usize::MAX;
 
-<<<<<<< HEAD:src/engine/ecs/core_systems/sprite_batch_allocator_system.rs
 pub struct SpriteBatchAllocatorSystem {
     pub renderer: Arc<RwLock<Renderer>>,
     pub atlas_data: HashMap<&'static str, Vec<u8>>,
     pub atlas_batch_ids: [usize; MAX_ATLASES],
     /// Next free instance slot for each atlas batch
     atlas_next_slot: [usize; MAX_ATLASES],
-=======
-    // DO NOT USE A WHOLE LOT AT RUNTIME THIS MF IS SLOW AS HELL ON HEAP TO AVOID BLOAT SINGLE THREAD ACCESS ONLY
-    pub atlas_data: HashMap<&'static str, Vec<u8>>, // Store the raw data of the atlases for reference when adding sprites to batches
->>>>>>> d5837ed729dd93e5682bced21b1ba93bb2a5a5e6:src/engine/rendering/sprite_batch_allocator_system.rs
 }
 
 impl SpriteBatchAllocatorSystem {
-<<<<<<< HEAD:src/engine/ecs/core_systems/sprite_batch_allocator_system.rs
     pub fn new(renderer: Arc<RwLock<Renderer>>, included_atlases: Vec<&'static str>) -> Self {
         let mut atlas_data: HashMap<&'static str, Vec<u8>> = HashMap::new();
         let mut atlas_batch_ids: [usize; MAX_ATLASES] = [0; MAX_ATLASES];
@@ -95,30 +83,5 @@ impl SystemBase for SpriteBatchAllocatorSystem {
         });
     }
 
-=======
-    /// When specifying limit to 32 as is the max atlas.
-    /// Creates a batch for each atlas and adds it to the renderer.
-    /// The system will then manage which sprites go into which batch based on their texture_id.
-    pub fn new(renderer: Arc<RwLock<Renderer>>, included_atlases: Vec<&'static str>) -> Self {
-        Self {
-            renderer,
-            atlas_data: load_atlas_data(included_atlases),
-        }
-    }
-}
-fn load_atlas_data(included_atlases: Vec<&'static str>) -> HashMap<&'static str, Vec<u8>> {
-    let mut atlas_data: HashMap<&'static str, Vec<u8>> = HashMap::new();
-    for asset_name in included_atlases.iter() {
-        println!("Sprite batch allocator loading {:}", asset_name);
-        let file = Asset::get(asset_name).unwrap();
-        let bytes: &[u8] = &file.data;
-        atlas_data.insert(asset_name, bytes.to_vec());
-    }
-    atlas_data
-}
-impl SystemBase for SpriteBatchAllocatorSystem {
-    fn on_start(&mut self, _world: &Arc<DynamicWorld>) {}
-    fn on_update(&mut self, _world: &Arc<DynamicWorld>) {}
->>>>>>> d5837ed729dd93e5682bced21b1ba93bb2a5a5e6:src/engine/rendering/sprite_batch_allocator_system.rs
     fn on_destroy(&mut self, _world: &Arc<DynamicWorld>) {}
 }
