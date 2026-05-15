@@ -15,7 +15,7 @@ use winit::window::Window;
 /// Identifies a compiled render pipeline. Add variants here for each new shader.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PipelineKey {
-    /// Standard alpha-blended sprite shader (the original).
+    /// Standard alpha-blended sprite shader.
     Default,
     /// Additive blending — good for particles, glows, fire.
     Additive,
