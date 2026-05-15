@@ -18,15 +18,17 @@ impl SystemBase for RenderSystem {
     fn on_start(&mut self, _world: &Arc<DynamicWorld>) {}
     fn on_update(&mut self, world: &Arc<DynamicWorld>) {
         let mut renderer = self.renderer.write().unwrap();
-
         world.for_each2_mut::<Transform, Sprite>(
             |_entity: Entity, transform: &mut Transform, sprite: &Sprite| {
-                renderer.batches[sprite.batch_index].instances[sprite.batch_index] = Instance {
-                    position: transform.position.into(),
-                    size: [1.0, 1.0],
-                    uv_offset: [0.0, 0.0],
-                    uv_scale: [1.0, 1.0],
-                };
+                // Don't render unitialized sprites
+                if sprite.index != usize::MAX && sprite.visible {
+                    renderer.batches[sprite.batch_index].instances[sprite.index] = Instance {
+                        position: transform.position.into(),
+                        size: [1.0, 1.0],
+                        uv_offset: [0.0, 0.0],
+                        uv_scale: [1.0, 1.0],
+                    };
+                }
             },
         );
     }

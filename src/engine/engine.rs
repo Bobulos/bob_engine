@@ -1,9 +1,11 @@
+use crate::b_engine;
 use crate::b_engine::entities;
+use crate::b_engine::entities::SystemGroup;
 use crate::b_engine::entities::entities::Entities;
-use crate::b_engine::system_bootstrap;
+use crate::b_engine::entities::system_group::SystemGroupThreading;
 use crate::coords::Float2;
+use crate::core_systems;
 use crate::rendering::Renderer;
-use crate::rendering::renderer;
 use std::sync::RwLock;
 use std::time::Duration;
 use std::time::Instant;
@@ -22,8 +24,7 @@ pub const MAIN_WORLD: &str = "main";
 pub const RENDER_GROUP: &str = "render_group";
 pub const SPRITE_BATCH_SIZE: usize = 1024 * 4; // 2^10
 pub const FIXED_DT: f32 = 1.0 / 60.0; // 2^14
-
-pub const INCLUDED_TEXTURES: &[&str] = &["tree.png", "Tux.png"];
+pub const INCLUDE_ATLAS: &[&str] = &["tree.png", "Tux.png"];
 impl Engine {
     // We take a mutable reference because the engine will need
     // to tell the renderer to clear/present/draw.s
@@ -39,7 +40,7 @@ impl Engine {
         self.debug_list_assets();
         self.setup_world();
         self.setup_renderer();
-        self.bootstrap_systems();
+        self.setup_systems();
         println!("Engine initialized");
     }
 
@@ -52,6 +53,7 @@ impl Engine {
     fn setup_world(&mut self) {
         self.entities
             .add_world(MAIN_WORLD, Arc::new(DynamicWorld::new()));
+        b_engine::entities::system_bootstrap::bootstrap(&self);
     }
 
     fn setup_renderer(&mut self) {
@@ -72,56 +74,55 @@ impl Engine {
                 };
                 1
             ],
-            Some(renderer::PipelineKey::Default),
         );
     }
 
     fn setup_sprites(&mut self) {
-        let file = Asset::get("tree.png").unwrap();
-        let bytes: &[u8] = &file.data;
-        let mut spawned = 0;
-        for _ in 0..1 {
-            let batch = self.renderer.write().unwrap().create_batch(
-                bytes,
-                vec![
-                    Instance {
-                        position: [0.0, 0.0],
-                        size: [0.0, 0.0],
-                        uv_offset: [0.0, 0.0],
-                        uv_scale: [1.0, 1.0],
-                    };
-                    SPRITE_BATCH_SIZE
-                ],
-                Some(renderer::PipelineKey::Default),
-            );
-
-            let world = self.entities.get_world(MAIN_WORLD).unwrap();
-            for y in 0..SPRITE_BATCH_SIZE {
-                spawned += 1;
+        let world = self.entities.get_world(MAIN_WORLD).unwrap();
+        for y in 0..64 {
+            for x in 0..64 {
                 let e = world.spawn();
                 world.insert(
                     e,
                     entities::core_components::Transform {
-                        position: Float2 {
-                            x: y as f32,
-                            y: y as f32,
-                        },
+                        position: Float2::new(x as f32, y as f32),
                     },
                 );
                 world.insert(
                     e,
                     entities::core_components::Sprite {
-                        texture_id: batch as u32,
+                        visible: true,
+                        batch_index: 0,
+                        index: usize::MAX,
+                        atlas_id: 0,
                         width: 1,
                         height: 1,
-                        batch_index: y,
-                        index: batch,
                     },
                 );
             }
         }
-
-        println!("Spawned {} entities", spawned);
+        for y in 64..128 {
+            for x in 64..128 {
+                let e = world.spawn();
+                world.insert(
+                    e,
+                    entities::core_components::Transform {
+                        position: Float2::new(x as f32, y as f32),
+                    },
+                );
+                world.insert(
+                    e,
+                    entities::core_components::Sprite {
+                        visible: true,
+                        batch_index: 0,
+                        index: usize::MAX,
+                        atlas_id: 1,
+                        width: 1,
+                        height: 1,
+                    },
+                );
+            }
+        }
     }
 
     fn setup_tilemap(&mut self) {
@@ -158,9 +159,34 @@ impl Engine {
         let queue = renderer.queue();
         renderer.tilemaps[trees].flush_position(queue);
     }
-    fn bootstrap_systems(&mut self) {
+    fn setup_systems(&mut self) {
         println!("Initializing system groups");
-        system_bootstrap::bootstrap_systems(self);
+
+        let fetched_world = self.entities.get_world(MAIN_WORLD).unwrap();
+        self.entities.add_system_group(
+            RENDER_GROUP,
+            SystemGroup::new(fetched_world, SystemGroupThreading::Parallel),
+        );
+
+        let group = self.entities.get_system_group_mut(RENDER_GROUP).unwrap();
+        let _rendering_system = group.register_system(Box::new(
+            core_systems::render_system::RenderSystem::new(Arc::clone(&self.renderer)),
+        ));
+        let atlasses = [""; core_systems::sprite_batch_allocator_system::MAX_ATLASES];
+        let _rendering_system = group.register_system(Box::new(
+            core_systems::sprite_batch_allocator_system::SpriteBatchAllocatorSystem::new(
+                Arc::clone(&self.renderer),
+                INCLUDE_ATLAS.to_vec(),
+            ),
+        ));
+
+        let fetched_world = self.entities.get_world(MAIN_WORLD).unwrap();
+        self.entities.add_system_group(
+            "test_group",
+            SystemGroup::new(fetched_world, SystemGroupThreading::Parallel),
+        );
+        let group = self.entities.get_system_group_mut("test_group").unwrap();
+        group.register_system(Box::new(core_systems::test_system::TestSystem::new()));
         // initialize them jhons
         self.entities.start_system_groups();
     }

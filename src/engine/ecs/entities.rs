@@ -1,4 +1,4 @@
-use std::{str, collections::HashMap, sync::Arc};
+use std::{collections::HashMap, str, sync::Arc};
 
 use crate::b_engine::entities::{DynamicWorld, SystemGroup};
 
@@ -6,13 +6,13 @@ use crate::b_engine::entities::{DynamicWorld, SystemGroup};
 pub struct Entities {
     pub worlds: HashMap<&'static str, Arc<DynamicWorld>>,
     /// Maximum of 16 system groups
-    pub system_groups: HashMap<&'static str, SystemGroup>
+    pub system_groups: HashMap<&'static str, SystemGroup>,
 }
 impl Entities {
-    pub fn new() -> Self{
-        Self {  
+    pub fn new() -> Self {
+        Self {
             worlds: HashMap::new(),
-            system_groups: HashMap::new()
+            system_groups: HashMap::new(),
         }
     }
     pub fn start_system_groups(&mut self) {
@@ -66,5 +66,4 @@ impl Entities {
             Err(joined)
         }
     }
-
 }
