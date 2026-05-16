@@ -14,8 +14,12 @@ const GRAVITY: f32 = 9.8;
 impl SystemBase for TestSystem {
     fn on_start(&mut self, _world: &Arc<DynamicWorld>) {}
     fn on_update(&mut self, world: &Arc<DynamicWorld>) {
-        world.for_each_mut::<Transform>(|_entity: Entity, transform: &mut Transform| {
-            transform.position.y -= GRAVITY * b_engine::engine::FIXED_DT; // Apply gravity to the y position
+        world.for_each_mut::<Transform>(|entity: Entity, transform: &mut Transform| {
+            // transform.position.y -= GRAVITY * b_engine::engine::FIXED_DT; // Apply gravity to the y position
+            // world.for_each_mut::<Transform>(|oponents: Entity, t: &mut Transform| {
+            //     transform.position +=
+            //         (transform.position - t.position) * b_engine::engine::FIXED_DT; // Apply gravity to the y position
+            // });
         });
     }
     fn on_destroy(&mut self, _world: &Arc<DynamicWorld>) {}

@@ -219,9 +219,10 @@ impl Renderer {
         let instance_buffer = self.make_instance_buffer(&instances);
         let bind_group = self.make_bind_group(&tex);
 
+        let capacity = (instances.len() * 2).max(1);
         let batch = Batch {
             pipeline_key,
-            num_instances: instances.len() as u32,
+            num_instances: capacity as u32,
             instance_capacity: instances.len(),
             instances,
             instance_buffer,
@@ -570,9 +571,23 @@ impl Renderer {
             if batch.instances.is_empty() {
                 continue;
             }
-            // Reallocate buffer if instances grew beyond capacity
-            if batch.instances.len() > batch.instance_capacity {
-                let new_capacity = batch.instances.len() * 2;
+
+            // Find the highest slot that isn't the sentinel [f32::MAX, f32::MAX]
+            let active_count = batch
+                .instances
+                .iter()
+                .rposition(|i| i.position[0] != f32::MAX)
+                .map(|pos| pos + 1)
+                .unwrap_or(0);
+
+            if active_count == 0 {
+                batch.num_instances = 0;
+                continue;
+            }
+
+            // Reallocate if needed
+            if active_count > batch.instance_capacity {
+                let new_capacity = active_count * 2;
                 batch.instance_buffer =
                     self.device
                         .as_ref()
@@ -586,11 +601,12 @@ impl Renderer {
                 batch.instance_capacity = new_capacity;
             }
 
-            batch.num_instances = batch.instances.len() as u32;
+            // Only upload up to the last active slot — no need to send dead space
+            batch.num_instances = active_count as u32;
             self.queue.as_ref().unwrap().write_buffer(
                 &batch.instance_buffer,
                 0,
-                bytemuck::cast_slice(&batch.instances),
+                bytemuck::cast_slice(&batch.instances[..active_count]),
             );
         }
     }

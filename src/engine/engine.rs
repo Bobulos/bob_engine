@@ -8,7 +8,6 @@ use crate::b_engine::entities::entities::Entities;
 use crate::b_engine::entities::system_group::SystemGroupThreading;
 use crate::core_systems;
 use crate::float2::Float2;
-use crate::rendering::Instance;
 use crate::rendering::Renderer;
 use std::sync::RwLock;
 use std::time::Duration;
@@ -62,8 +61,8 @@ impl Engine {
 
     fn setup_sprites(&mut self) {
         let world = self.entities.get_world(MAIN_WORLD).unwrap();
-        for y in 0..64 {
-            for x in 0..64 {
+        for y in 0..20 {
+            for x in 0..20 {
                 let e = world.spawn();
                 world.insert(
                     e,
@@ -84,28 +83,28 @@ impl Engine {
                 );
             }
         }
-        for y in 64..128 {
-            for x in 64..128 {
-                let e = world.spawn();
-                world.insert(
-                    e,
-                    entities::core_components::Transform {
-                        position: Float2::new(x as f32, y as f32),
-                    },
-                );
-                world.insert(
-                    e,
-                    entities::core_components::Sprite {
-                        visible: true,
-                        batch_index: 0,
-                        index: usize::MAX,
-                        atlas_id: 1,
-                        width: 1,
-                        height: 1,
-                    },
-                );
-            }
-        }
+        // for y in 64..128 {
+        //     for x in 64..256 {
+        //         let e = world.spawn();
+        //         world.insert(
+        //             e,
+        //             entities::core_components::Transform {
+        //                 position: Float2::new(x as f32, y as f32),
+        //             },
+        //         );
+        //         world.insert(
+        //             e,
+        //             entities::core_components::Sprite {
+        //                 visible: true,
+        //                 batch_index: 0,
+        //                 index: usize::MAX,
+        //                 atlas_id: 1,
+        //                 width: 1,
+        //                 height: 1,
+        //             },
+        //         );
+        //     }
+        // }
     }
 
     fn setup_tilemap(&mut self) {
