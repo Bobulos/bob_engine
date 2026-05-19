@@ -14,6 +14,7 @@ use std::time::Duration;
 use std::time::Instant;
 use std::{sync::Arc, vec};
 pub struct Engine {
+    pub frame_count: u64,
     pub renderer: Arc<RwLock<Renderer>>,
     pub input: Input,
     pub entities: Entities,
@@ -28,6 +29,7 @@ impl Engine {
     // to tell the renderer to clear/present/draw.s
     pub fn new(renderer: Renderer) -> Self {
         Self {
+            frame_count: 0,
             renderer: Arc::new(RwLock::new(renderer)),
             input: Input::new(),
             entities: Entities::new(),
@@ -178,6 +180,8 @@ impl Engine {
         self.entities.start_system_groups();
     }
     pub fn run(&mut self) {
+        self.frame_count += 1;
+
         let target_frame_time = Duration::from_secs_f64(1.0 / 60.0);
         let frame_start = Instant::now();
         self.update();
@@ -187,6 +191,12 @@ impl Engine {
         print!("\rFrame time: {:.2} ms", elapsed.as_secs_f64() * 1000.0);
         if elapsed > target_frame_time {
             println!("Engine running at reduced clock");
+        }
+        if self.frame_count % 60 == 0 {
+            println!(
+                "Entity count: {}",
+                self.entities.get_world(MAIN_WORLD).unwrap().entity_count()
+            );
         }
 
         let elapsed = frame_start.elapsed();
