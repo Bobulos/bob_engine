@@ -2,23 +2,23 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use crate::b_engine::entities::query::QueryFilter;
 use crate::component_store::ComponentStore;
-use crate::b_engine::entities::query::{QueryFilter};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Entity(pub usize);
 
 pub struct DynamicWorld {
-    storages:       RwLock<HashMap<TypeId, Arc<RwLock<Box<dyn Any + Send + Sync>>>>>,
-    alive:          RwLock<Vec<bool>>,
+    storages: RwLock<HashMap<TypeId, Arc<RwLock<Box<dyn Any + Send + Sync>>>>>,
+    alive: RwLock<Vec<bool>>,
     entities_count: RwLock<usize>,
 }
 
 impl DynamicWorld {
     pub fn new() -> Self {
         Self {
-            storages:       RwLock::new(HashMap::new()),
-            alive:          RwLock::new(Vec::new()),
+            storages: RwLock::new(HashMap::new()),
+            alive: RwLock::new(Vec::new()),
             entities_count: RwLock::new(0),
         }
     }
@@ -28,7 +28,11 @@ impl DynamicWorld {
     fn storage_arc<T: Any + Send + Sync + 'static>(
         &self,
     ) -> Option<Arc<RwLock<Box<dyn Any + Send + Sync>>>> {
-        self.storages.read().unwrap().get(&TypeId::of::<T>()).cloned()
+        self.storages
+            .read()
+            .unwrap()
+            .get(&TypeId::of::<T>())
+            .cloned()
     }
 
     fn with_storage<T, R>(&self, f: impl FnOnce(&ComponentStore<T>) -> R) -> Option<R>
@@ -53,7 +57,7 @@ impl DynamicWorld {
 
     // ── Entity management ─────────────────────────────────────────────────────
 
-    pub fn spawn(&self) -> Entity {
+    pub fn create_entity(&self) -> Entity {
         let mut count = self.entities_count.write().unwrap();
         let id = *count;
         *count += 1;
@@ -65,14 +69,19 @@ impl DynamicWorld {
         Entity(id)
     }
 
-    pub fn despawn(&self, entity: Entity) {
+    pub fn destroy_entity(&self, entity: Entity) {
         if let Some(slot) = self.alive.write().unwrap().get_mut(entity.0) {
             *slot = false;
         }
     }
 
     pub fn is_alive(&self, entity: Entity) -> bool {
-        self.alive.read().unwrap().get(entity.0).copied().unwrap_or(false)
+        self.alive
+            .read()
+            .unwrap()
+            .get(entity.0)
+            .copied()
+            .unwrap_or(false)
     }
 
     pub fn entity_count(&self) -> usize {
@@ -89,12 +98,12 @@ impl DynamicWorld {
             .or_insert_with(|| Arc::new(RwLock::new(Box::new(ComponentStore::<T>::new()))));
     }
 
-    pub fn insert<T: Any + Send + Sync + 'static>(&self, entity: Entity, component: T) {
+    pub fn add_component<T: Any + Send + Sync + 'static>(&self, entity: Entity, component: T) {
         self.register_component::<T>();
         self.with_storage_mut::<T, _>(|s| s.insert(entity.0, component));
     }
 
-    pub fn remove<T: Any + Send + Sync + 'static>(&self, entity: Entity) {
+    pub fn remove_component<T: Any + Send + Sync + 'static>(&self, entity: Entity) {
         self.with_storage_mut::<T, _>(|s| s.remove(entity.0));
     }
 
@@ -117,7 +126,9 @@ impl DynamicWorld {
         let alive = self.alive.read().unwrap();
         self.with_storage::<A, _>(|sa| {
             for id in 0..count {
-                if !alive.get(id).copied().unwrap_or(false) { continue; }
+                if !alive.get(id).copied().unwrap_or(false) {
+                    continue;
+                }
                 if let Some(a) = sa.get(id) {
                     f(Entity(id), a);
                 }
@@ -133,15 +144,23 @@ impl DynamicWorld {
         let count = *self.entities_count.read().unwrap();
         let alive = self.alive.read().unwrap();
 
-        let arc_a = match self.storage_arc::<A>() { Some(a) => a, None => return };
-        let arc_b = match self.storage_arc::<B>() { Some(b) => b, None => return };
+        let arc_a = match self.storage_arc::<A>() {
+            Some(a) => a,
+            None => return,
+        };
+        let arc_b = match self.storage_arc::<B>() {
+            Some(b) => b,
+            None => return,
+        };
         let guard_a = arc_a.read().unwrap();
         let guard_b = arc_b.read().unwrap();
         let sa = guard_a.downcast_ref::<ComponentStore<A>>().unwrap();
         let sb = guard_b.downcast_ref::<ComponentStore<B>>().unwrap();
 
         for id in 0..count {
-            if !alive.get(id).copied().unwrap_or(false) { continue; }
+            if !alive.get(id).copied().unwrap_or(false) {
+                continue;
+            }
             if let (Some(a), Some(b)) = (sa.get(id), sb.get(id)) {
                 f(Entity(id), a, b);
             }
@@ -157,9 +176,18 @@ impl DynamicWorld {
         let count = *self.entities_count.read().unwrap();
         let alive = self.alive.read().unwrap();
 
-        let arc_a = match self.storage_arc::<A>() { Some(a) => a, None => return };
-        let arc_b = match self.storage_arc::<B>() { Some(b) => b, None => return };
-        let arc_c = match self.storage_arc::<C>() { Some(c) => c, None => return };
+        let arc_a = match self.storage_arc::<A>() {
+            Some(a) => a,
+            None => return,
+        };
+        let arc_b = match self.storage_arc::<B>() {
+            Some(b) => b,
+            None => return,
+        };
+        let arc_c = match self.storage_arc::<C>() {
+            Some(c) => c,
+            None => return,
+        };
         let guard_a = arc_a.read().unwrap();
         let guard_b = arc_b.read().unwrap();
         let guard_c = arc_c.read().unwrap();
@@ -168,7 +196,9 @@ impl DynamicWorld {
         let sc = guard_c.downcast_ref::<ComponentStore<C>>().unwrap();
 
         for id in 0..count {
-            if !alive.get(id).copied().unwrap_or(false) { continue; }
+            if !alive.get(id).copied().unwrap_or(false) {
+                continue;
+            }
             if let (Some(a), Some(b), Some(c)) = (sa.get(id), sb.get(id), sc.get(id)) {
                 f(Entity(id), a, b, c);
             }
@@ -183,17 +213,24 @@ impl DynamicWorld {
         let count = *self.entities_count.read().unwrap();
         let alive = self.alive.read().unwrap();
 
-        let arc_a = match self.storage_arc::<A>() { Some(a) => a, None => return };
+        let arc_a = match self.storage_arc::<A>() {
+            Some(a) => a,
+            None => return,
+        };
         let guard_a = arc_a.read().unwrap();
         let sa = guard_a.downcast_ref::<ComponentStore<A>>().unwrap();
 
         // B is optional — don't bail if missing, just pass None
         let arc_b = self.storage_arc::<B>();
         let guard_b = arc_b.as_ref().map(|a| a.read().unwrap());
-        let sb = guard_b.as_ref().and_then(|g| g.downcast_ref::<ComponentStore<B>>());
+        let sb = guard_b
+            .as_ref()
+            .and_then(|g| g.downcast_ref::<ComponentStore<B>>());
 
         for id in 0..count {
-            if !alive.get(id).copied().unwrap_or(false) { continue; }
+            if !alive.get(id).copied().unwrap_or(false) {
+                continue;
+            }
             if let Some(a) = sa.get(id) {
                 f(Entity(id), a, sb.and_then(|s| s.get(id)));
             }
@@ -209,12 +246,17 @@ impl DynamicWorld {
         let count = *self.entities_count.read().unwrap();
         let alive = self.alive.read().unwrap();
 
-        let arc_a = match self.storage_arc::<A>() { Some(a) => a, None => return };
+        let arc_a = match self.storage_arc::<A>() {
+            Some(a) => a,
+            None => return,
+        };
         let mut guard_a = arc_a.write().unwrap();
         let sa = guard_a.downcast_mut::<ComponentStore<A>>().unwrap();
 
         for id in 0..count {
-            if !alive.get(id).copied().unwrap_or(false) { continue; }
+            if !alive.get(id).copied().unwrap_or(false) {
+                continue;
+            }
             if let Some(a) = sa.get_mut(id) {
                 f(Entity(id), a);
             }
@@ -227,20 +269,32 @@ impl DynamicWorld {
         A: Any + Send + Sync + 'static,
         B: Any + Send + Sync + 'static,
     {
-        assert_ne!(TypeId::of::<A>(), TypeId::of::<B>(), "A and B must be different types");
+        assert_ne!(
+            TypeId::of::<A>(),
+            TypeId::of::<B>(),
+            "A and B must be different types"
+        );
 
         let count = *self.entities_count.read().unwrap();
         let alive = self.alive.read().unwrap();
 
-        let arc_a = match self.storage_arc::<A>() { Some(a) => a, None => return };
-        let arc_b = match self.storage_arc::<B>() { Some(b) => b, None => return };
+        let arc_a = match self.storage_arc::<A>() {
+            Some(a) => a,
+            None => return,
+        };
+        let arc_b = match self.storage_arc::<B>() {
+            Some(b) => b,
+            None => return,
+        };
         let mut guard_a = arc_a.write().unwrap();
         let guard_b = arc_b.read().unwrap();
         let sa = guard_a.downcast_mut::<ComponentStore<A>>().unwrap();
         let sb = guard_b.downcast_ref::<ComponentStore<B>>().unwrap();
 
         for id in 0..count {
-            if !alive.get(id).copied().unwrap_or(false) { continue; }
+            if !alive.get(id).copied().unwrap_or(false) {
+                continue;
+            }
             if let (Some(a), Some(b)) = (sa.get_mut(id), sb.get(id)) {
                 f(Entity(id), a, b);
             }
@@ -253,20 +307,32 @@ impl DynamicWorld {
         A: Any + Send + Sync + 'static,
         B: Any + Send + Sync + 'static,
     {
-        assert_ne!(TypeId::of::<A>(), TypeId::of::<B>(), "A and B must be different types");
+        assert_ne!(
+            TypeId::of::<A>(),
+            TypeId::of::<B>(),
+            "A and B must be different types"
+        );
 
         let count = *self.entities_count.read().unwrap();
         let alive = self.alive.read().unwrap();
 
-        let arc_a = match self.storage_arc::<A>() { Some(a) => a, None => return };
-        let arc_b = match self.storage_arc::<B>() { Some(b) => b, None => return };
+        let arc_a = match self.storage_arc::<A>() {
+            Some(a) => a,
+            None => return,
+        };
+        let arc_b = match self.storage_arc::<B>() {
+            Some(b) => b,
+            None => return,
+        };
         let mut guard_a = arc_a.write().unwrap();
         let mut guard_b = arc_b.write().unwrap();
         let sa = guard_a.downcast_mut::<ComponentStore<A>>().unwrap();
         let sb = guard_b.downcast_mut::<ComponentStore<B>>().unwrap();
 
         for id in 0..count {
-            if !alive.get(id).copied().unwrap_or(false) { continue; }
+            if !alive.get(id).copied().unwrap_or(false) {
+                continue;
+            }
             if let (Some(a), Some(b)) = (sa.get_mut(id), sb.get_mut(id)) {
                 f(Entity(id), a, b);
             }
@@ -280,16 +346,37 @@ impl DynamicWorld {
         B: Any + Send + Sync + 'static,
         C: Any + Send + Sync + 'static,
     {
-        assert_ne!(TypeId::of::<A>(), TypeId::of::<B>(), "A and B must be different types");
-        assert_ne!(TypeId::of::<A>(), TypeId::of::<C>(), "A and C must be different types");
-        assert_ne!(TypeId::of::<B>(), TypeId::of::<C>(), "B and C must be different types");
+        assert_ne!(
+            TypeId::of::<A>(),
+            TypeId::of::<B>(),
+            "A and B must be different types"
+        );
+        assert_ne!(
+            TypeId::of::<A>(),
+            TypeId::of::<C>(),
+            "A and C must be different types"
+        );
+        assert_ne!(
+            TypeId::of::<B>(),
+            TypeId::of::<C>(),
+            "B and C must be different types"
+        );
 
         let count = *self.entities_count.read().unwrap();
         let alive = self.alive.read().unwrap();
 
-        let arc_a = match self.storage_arc::<A>() { Some(a) => a, None => return };
-        let arc_b = match self.storage_arc::<B>() { Some(b) => b, None => return };
-        let arc_c = match self.storage_arc::<C>() { Some(c) => c, None => return };
+        let arc_a = match self.storage_arc::<A>() {
+            Some(a) => a,
+            None => return,
+        };
+        let arc_b = match self.storage_arc::<B>() {
+            Some(b) => b,
+            None => return,
+        };
+        let arc_c = match self.storage_arc::<C>() {
+            Some(c) => c,
+            None => return,
+        };
         let mut guard_a = arc_a.write().unwrap();
         let mut guard_b = arc_b.write().unwrap();
         let guard_c = arc_c.read().unwrap();
@@ -298,7 +385,9 @@ impl DynamicWorld {
         let sc = guard_c.downcast_ref::<ComponentStore<C>>().unwrap();
 
         for id in 0..count {
-            if !alive.get(id).copied().unwrap_or(false) { continue; }
+            if !alive.get(id).copied().unwrap_or(false) {
+                continue;
+            }
             if let (Some(a), Some(b), Some(c)) = (sa.get_mut(id), sb.get_mut(id), sc.get(id)) {
                 f(Entity(id), a, b, c);
             }
@@ -316,8 +405,12 @@ impl DynamicWorld {
         let alive = self.alive.read().unwrap();
         self.with_storage::<A, _>(|sa| {
             for id in 0..count {
-                if !alive.get(id).copied().unwrap_or(false) { continue; }
-                if !filter.matches(id, self) { continue; }
+                if !alive.get(id).copied().unwrap_or(false) {
+                    continue;
+                }
+                if !filter.matches(id, self) {
+                    continue;
+                }
                 if let Some(a) = sa.get(id) {
                     f(Entity(id), a);
                 }
@@ -333,13 +426,20 @@ impl DynamicWorld {
         let count = *self.entities_count.read().unwrap();
         let alive = self.alive.read().unwrap();
 
-        let arc_a = match self.storage_arc::<A>() { Some(a) => a, None => return };
+        let arc_a = match self.storage_arc::<A>() {
+            Some(a) => a,
+            None => return,
+        };
         let mut guard_a = arc_a.write().unwrap();
         let sa = guard_a.downcast_mut::<ComponentStore<A>>().unwrap();
 
         for id in 0..count {
-            if !alive.get(id).copied().unwrap_or(false) { continue; }
-            if !filter.matches(id, self) { continue; }
+            if !alive.get(id).copied().unwrap_or(false) {
+                continue;
+            }
+            if !filter.matches(id, self) {
+                continue;
+            }
             if let Some(a) = sa.get_mut(id) {
                 f(Entity(id), a);
             }

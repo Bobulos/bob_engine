@@ -30,8 +30,8 @@ impl SystemBase for TestSystem {
                 y: spawned * f32::cos(spawned),
             };
 
-            let e = world.spawn();
-            world.insert(
+            let e = world.create_entity();
+            world.add_component(
                 e,
                 core_components::Sprite {
                     visible: true,
@@ -43,7 +43,7 @@ impl SystemBase for TestSystem {
                 },
             );
 
-            world.insert(e, core_components::Transform { position });
+            world.add_component(e, core_components::Transform { position });
         }
 
         const SPEED: f32 = 0.01;

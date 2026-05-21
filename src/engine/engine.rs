@@ -9,16 +9,17 @@ use crate::b_engine::entities::system_group::SystemGroupThreading;
 use crate::core_systems;
 use crate::float2::Float2;
 use crate::rendering::Renderer;
+use std::sync::Arc;
 use std::sync::RwLock;
 use std::time::Duration;
 use std::time::Instant;
-use std::{sync::Arc, vec};
 pub struct Engine {
     pub frame_count: u64,
     pub renderer: Arc<RwLock<Renderer>>,
-    pub input: Input,
+    pub input: Arc<Input>,
     pub entities: Entities,
 }
+
 pub const MAIN_WORLD: &str = "main";
 pub const RENDER_GROUP: &str = "render_group";
 pub const SPRITE_BATCH_SIZE: usize = 1024 * 4; // 2^10
@@ -65,14 +66,14 @@ impl Engine {
         let world = self.entities.get_world(MAIN_WORLD).unwrap();
         for y in 0..20 {
             for x in 0..20 {
-                let e = world.spawn();
-                world.insert(
+                let e = world.create_entity();
+                world.add_component(
                     e,
                     entities::core_components::Transform {
                         position: Float2::new(x as f32, y as f32),
                     },
                 );
-                world.insert(
+                world.add_component(
                     e,
                     entities::core_components::Sprite {
                         visible: true,
